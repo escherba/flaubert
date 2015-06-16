@@ -2,13 +2,16 @@ import nltk
 import pandas as pd
 import unicodedata
 import regex as re
-from pymaptools.io import write_json_line, PathArgumentParser, GzipFileType
+import sys
+from itertools import islice
 from bs4 import BeautifulSoup
 from functools import partial
 from nltk.corpus import stopwords
 from nltk.stem import wordnet, PorterStemmer
 from nltk import pos_tag
 from joblib import Parallel, delayed
+from pymaptools.io import write_json_line, PathArgumentParser, GzipFileType
+
 
 TREEBANK2WORDNET = {
     'J': wordnet.wordnet.ADJ,
@@ -27,22 +30,17 @@ def treebank2wordnet(treebank_tag):
 
 class SimpleSentenceTokenizer(object):
 
-    _sentence_tokenizer = nltk.data.load('tokenizers/punkt/english.pickle')
-
     def __init__(self, word_regex=u"\\p{L}+", form='NFKC', stop_words=stopwords.words("english"),
                  lemmatizer=None, stemmer=None):
         self._normalize = partial(unicodedata.normalize, form)
         self._word_tokenize = re.compile(word_regex, re.UNICODE | re.IGNORECASE).findall
         self._stopwords = frozenset(stop_words)
-        self._sentence_tokenize = self._sentence_tokenizer.tokenize
+        self._sentence_tokenize = nltk.data.load('tokenizers/punkt/english.pickle').tokenize
         self._lemmatizer = lemmatizer
         self._stemmer = stemmer
         self._pos_tag = pos_tag
 
-    def tokenize(self, text, remove_html=True, remove_stopwords=False):
-        # Function to convert a document to a sequence of words,
-        # optionally removing stop words.  Returns a list of words.
-        #
+    def word_tokenize(self, text, remove_html=True, remove_stopwords=False):
         # 1. Remove HTML
         if remove_html:
             text = BeautifulSoup(text).get_text()
@@ -83,64 +81,81 @@ class SimpleSentenceTokenizer(object):
         for raw_sentence in self._sentence_tokenize(text):
             if not raw_sentence:
                 continue
-            words = self.tokenize(raw_sentence, remove_html=False)
+            words = self.word_tokenize(raw_sentence, remove_html=False)
             if not words:
                 continue
             sentences.append(words)
         return sentences
 
-
-def read_review_data(filename):
-    return pd.read_csv(filename, header=0, delimiter="\t", quoting=2, escapechar="\\", quotechar='"', encoding="utf-8")
+    tokenize = word_tokenize
 
 
-
-tokenizer1 = SimpleSentenceTokenizer(lemmatizer=wordnet.WordNetLemmatizer())
-tokenizer2 = SimpleSentenceTokenizer(stemmer=PorterStemmer())
-tokenizer3 = SimpleSentenceTokenizer()
-
-
-def review_to_wordlist(review, **kwargs):
-    return tokenizer3.tokenize(review, **kwargs)
-
-
-train = read_review_data("labeledTrainData.tsv")
-test = read_review_data("testData.tsv")
-unlabeled_train = read_review_data("unlabeledTrainData.tsv")
+def read_tsv(file_input):
+    return pd.read_csv(file_input, header=0, delimiter="\t", quoting=2,
+                       escapechar="\\", quotechar='"', encoding="utf-8")
 
 
 def get_reviews(*datasets):
-    for dataset in datasets:
+    for fhandle in datasets:
+        dataset = read_tsv(fhandle)
         for review in dataset['review']:
             yield review
 
 
-def get_sentences(tokenizer, text):
+def get_sentences(tokenizer_, text):
     sentences = []
-    for sentence in tokenizer.sentence_tokenize(text):
+    for sentence in tokenizer_.sentence_tokenize(text):
         sentences.append(sentence)
     return sentences
 
 
-sent_tokenize = partial(get_sentences, tokenizer1)
-review_iterator = get_reviews(train, unlabeled_train)
-sentences = Parallel(n_jobs=6)(delayed(sent_tokenize)(sent) for sent in review_iterator)
+def get_words(tokenizer_, review, **kwargs):
+    return tokenizer_.tokenize(review, **kwargs)
 
 
 def parse_args(args=None):
     parser = PathArgumentParser()
-    parser.add_argument('--input', type=str, metavar='FILE', required=True,
-                        help='Input CSV')
-    parser.add_argument('--output', type=GzipFileType('w'), required=True,
-                        help='File to write sentences to')
+    parser.add_argument('--input', type=GzipFileType('r'), default=[sys.stdin], nargs='*',
+                        help='Input file (in TSV format, optionally compressed)')
+    parser.add_argument('--lemmatize', action='store_true',
+                        help='lemmatize words (overrides --stem)')
+    parser.add_argument('--stem', action='store_true',
+                        help='stem words')
+    parser.add_argument('--sentences', action='store_true',
+                        help='split by sentence instead of by record')
+    parser.add_argument('--limit', type=int, default=None,
+                        help='Only process this many lines (for testing)')
+    parser.add_argument('--output', type=GzipFileType('w'), default=sys.stdout,
+                        help='File to write sentences to, optionally compressed')
     namespace = parser.parse_args(args)
     return namespace
 
 
+def get_review_iterator(args):
+    return get_reviews(*args.input)
+
+
+def get_tokenizer(args):
+    if args.lemmatize:
+        tokenizer = SimpleSentenceTokenizer(lemmatizer=wordnet.WordNetLemmatizer())
+    elif args.stem:
+        tokenizer = SimpleSentenceTokenizer(stemmer=PorterStemmer())
+    else:
+        tokenizer = SimpleSentenceTokenizer()
+    return tokenizer
+
+
 def run(args):
-    with open(args.output, 'w') as fh:
-        for sentence in sentences:
-            write_json_line(fh, sentence)
+    tokenizer = get_tokenizer(args)
+    iterator = get_review_iterator(args)
+    if args.limit:
+        iterator = islice(iterator, args.limit)
+    if args.sentences:
+        tokenize = get_sentences
+    else:
+        tokenize = get_words
+    for record in Parallel(n_jobs=1)(delayed(tokenize)(tokenizer, review) for review in iterator):
+        write_json_line(args.output, record)
 
 
 if __name__ == "__main__":
