@@ -33,9 +33,9 @@ class SimpleSentenceTokenizer(object):
     def __init__(self, word_regex=u"\\p{L}+", form='NFKC', stop_words=stopwords.words("english"),
                  lemmatizer=None, stemmer=None):
         self._normalize = partial(unicodedata.normalize, form)
-        self._word_tokenize = re.compile(word_regex, re.UNICODE | re.IGNORECASE).findall
+        self._word_regex = re.compile(word_regex, re.UNICODE | re.IGNORECASE)
         self._stopwords = frozenset(stop_words)
-        self._sentence_tokenize = nltk.data.load('tokenizers/punkt/english.pickle').tokenize
+        self._sentence_tokenizer = nltk.data.load('tokenizers/punkt/english.pickle')
         self._lemmatizer = lemmatizer
         self._stemmer = stemmer
         self._pos_tag = pos_tag
@@ -52,7 +52,7 @@ class SimpleSentenceTokenizer(object):
         text = text.lower()
 
         # 4. Tokenize on letters only (simple)
-        words = self._word_tokenize(text)
+        words = self._word_regex.findall(text)
 
         # 5. Lemmatize or stem based on POS tags
         if self._lemmatizer:
@@ -78,7 +78,7 @@ class SimpleSentenceTokenizer(object):
     def sentence_tokenize(self, text):
         text = BeautifulSoup(text).get_text()
         sentences = []
-        for raw_sentence in self._sentence_tokenize(text):
+        for raw_sentence in self._sentence_tokenizer.tokenize(text):
             if not raw_sentence:
                 continue
             words = self.word_tokenize(raw_sentence, remove_html=False)
@@ -125,6 +125,8 @@ def parse_args(args=None):
                         help='split by sentence instead of by record')
     parser.add_argument('--limit', type=int, default=None,
                         help='Only process this many lines (for testing)')
+    parser.add_argument('--n_jobs', type=int, default=-1,
+                        help="Number of jobs to run")
     parser.add_argument('--output', type=GzipFileType('w'), default=sys.stdout,
                         help='File to write sentences to, optionally compressed')
     namespace = parser.parse_args(args)
@@ -132,7 +134,10 @@ def parse_args(args=None):
 
 
 def get_review_iterator(args):
-    return get_reviews(*args.input)
+    iterator = get_reviews(*args.input)
+    if args.limit:
+        iterator = islice(iterator, args.limit)
+    return iterator
 
 
 def get_tokenizer(args):
@@ -145,16 +150,19 @@ def get_tokenizer(args):
     return tokenizer
 
 
-def run(args):
-    tokenizer = get_tokenizer(args)
-    iterator = get_review_iterator(args)
-    if args.limit:
-        iterator = islice(iterator, args.limit)
+def get_tokenize_method(args):
     if args.sentences:
         tokenize = get_sentences
     else:
         tokenize = get_words
-    for record in Parallel(n_jobs=1)(delayed(tokenize)(tokenizer, review) for review in iterator):
+    return tokenize
+
+
+def run(args):
+    tokenizer = get_tokenizer(args)
+    iterator = get_review_iterator(args)
+    tokenize = get_tokenize_method(args)
+    for record in Parallel(n_jobs=args.n_jobs)(delayed(tokenize)(tokenizer, review) for review in iterator):
         write_json_line(args.output, record)
 
 
