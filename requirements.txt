@@ -1,0 +1,6 @@
+gensim
+beautifulsoup4
+nltk
+regex
+pandas
+pymaptools>=0.1.12
