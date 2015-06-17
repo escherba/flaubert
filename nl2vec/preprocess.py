@@ -57,13 +57,14 @@ class SimpleSentenceTokenizer(object):
 
         # 5. Lemmatize or stem based on POS tags
         if self._lemmatizer:
-            words = []
+            final_words = []
             lemmatize = self._lemmatizer.lemmatize
             for word, tag in self._pos_tag(words):
                 wordnet_tag = treebank2wordnet(tag)
                 if wordnet_tag is not None:
                     word = lemmatize(word, pos=wordnet_tag)
-                words.append(word)
+                final_words.append(word)
+            words = final_words
         elif self._stemmer:
             stem = self._stemmer.stem
             words = [stem(word) for word in words]
