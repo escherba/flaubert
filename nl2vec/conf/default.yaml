@@ -1,0 +1,7 @@
+tokenizer:
+    word_regex: "\\p{L}+"
+    form: "NFKC"
+    stop_words: "english"
+
+lemmatizer: "wordnet"  # null or "wordnet"
+stemmer: null   # null or "porter"
