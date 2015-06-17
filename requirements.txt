@@ -3,4 +3,5 @@ beautifulsoup4
 nltk
 regex
 pandas
-pymaptools>=0.1.12
+git+https://github.com/Livefyre/pymaptools#egg=pymaptools-0.1.12
+fastcache==1.0.2

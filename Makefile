@@ -1,4 +1,4 @@
-PYENV = . env/bin/activate;
+PYENV = 
 PYTHON = $(PYENV) python
 PIP = $(PYENV) pip
 

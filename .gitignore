@@ -61,4 +61,6 @@ target/
 
 data/
 
+# Domino
 .domino/
+results/
