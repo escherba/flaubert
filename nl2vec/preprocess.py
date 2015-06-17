@@ -3,6 +3,7 @@ import pandas as pd
 import unicodedata
 import regex as re
 import sys
+import warnings
 from itertools import islice
 from bs4 import BeautifulSoup
 from functools import partial
@@ -10,6 +11,7 @@ from nltk.corpus import stopwords
 from nltk.stem import wordnet, PorterStemmer
 from nltk import pos_tag
 from joblib import Parallel, delayed
+from fastcache import clru_cache
 from pymaptools.io import write_json_line, PathArgumentParser, GzipFileType
 from nl2vec.conf import CONFIG
 
@@ -32,19 +34,27 @@ def treebank2wordnet(treebank_tag):
 class SimpleSentenceTokenizer(object):
 
     def __init__(self, lemmatizer=None, stemmer=None,
-                 word_regex=u"\\p{L}+", form='NFKC', stop_words="english"):
+                 word_regex=u"\\p{L}+", form='NFKC', stop_words="english",
+                 lru_cache_size=50000):
         self._normalize = partial(unicodedata.normalize, form)
         self._word_regex = re.compile(word_regex, re.UNICODE | re.IGNORECASE)
         self._stopwords = frozenset(stopwords.words(stop_words))
         self._sentence_tokenizer = nltk.data.load('tokenizers/punkt/english.pickle')
         self._lemmatizer = lemmatizer
+        self._fast_lemmatize = clru_cache(maxsize=lru_cache_size)(lemmatizer.lemmatize) if lemmatizer else None
         self._stemmer = stemmer
         self._pos_tag = pos_tag
+
+    def strip_html(self, text):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            text = BeautifulSoup(text).get_text()
+        return text
 
     def word_tokenize(self, text, remove_html=True, remove_stopwords=False):
         # 1. Remove HTML
         if remove_html:
-            text = BeautifulSoup(text).get_text()
+            text = self.strip_html(text)
 
         # 2. Normalize Unicode
         text = self._normalize(text)
@@ -56,9 +66,9 @@ class SimpleSentenceTokenizer(object):
         words = self._word_regex.findall(text)
 
         # 5. Lemmatize or stem based on POS tags
-        if self._lemmatizer:
+        if self._fast_lemmatize:
             final_words = []
-            lemmatize = self._lemmatizer.lemmatize
+            lemmatize = self._fast_lemmatize
             for word, tag in self._pos_tag(words):
                 wordnet_tag = treebank2wordnet(tag)
                 if wordnet_tag is not None:
@@ -79,7 +89,7 @@ class SimpleSentenceTokenizer(object):
 
     def sentence_tokenize(self, text, remove_html=True, remove_stopwords=False):
         if remove_html:
-            text = BeautifulSoup(text).get_text()
+            text = self.strip_html(text)
         sentences = []
         for raw_sentence in self._sentence_tokenizer.tokenize(text):
             if not raw_sentence:
@@ -178,8 +188,17 @@ def get_tokenize_method(args):
 def run(args):
     iterator = get_review_iterator(args)
     tokenize = get_tokenize_method(args)
-    for record in Parallel(n_jobs=args.n_jobs, verbose=10)(delayed(tokenize)(review) for review in iterator):
-        write_json_line(args.output, record)
+    write_record = partial(write_json_line, args.output)
+    if args.n_jobs == 1:
+        # turn off parallelism
+        for review in iterator:
+            record = tokenize(review)
+            write_record(record)
+    else:
+        # enable parallellism
+        for record in Parallel(n_jobs=args.n_jobs, verbose=10)(
+                delayed(tokenize)(review) for review in iterator):
+            write_record(record)
 
 
 if __name__ == "__main__":

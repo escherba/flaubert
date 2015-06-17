@@ -60,3 +60,5 @@ target/
 *.sw[op]
 
 data/
+
+.domino/

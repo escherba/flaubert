@@ -3,5 +3,5 @@ tokenizer:
     form: "NFKC"
     stop_words: "english"
 
-lemmatizer: "wordnet"  # null or "wordnet"
+lemmatizer: wordnet  # null or "wordnet"
 stemmer: null   # null or "porter"
