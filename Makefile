@@ -1,4 +1,8 @@
-PYENV = 
+ifeq ($(DOMINO_RUN),1)
+PYENV =
+else
+PYENV = . env/bin/activate;
+endif
 PYTHON = $(PYENV) python
 PIP = $(PYENV) pip
 
