@@ -1,7 +1,9 @@
 tokenizer:
-    word_regex: "\\p{L}+"
+    word_regex: "\\p{L}+|[?!]+"
     form: "NFKC"
     stop_words: "english"
+    max_char_repeats: 3
+    lru_cache_size: 50000   # cache size (for wordnet lemmatizer only at the moment)
 
 lemmatizer: wordnet  # null or "wordnet"
 stemmer: null   # null or "porter"

@@ -3,6 +3,7 @@ import pandas as pd
 import unicodedata
 import regex as re
 import sys
+import abc
 import warnings
 from itertools import islice
 from bs4 import BeautifulSoup
@@ -31,19 +32,71 @@ def treebank2wordnet(treebank_tag):
     return TREEBANK2WORDNET.get(letter)
 
 
+class Replacer(object):
+
+    __metaclass__ = abc.ABCMeta
+
+    @abc.abstractmethod
+    def replace(self, text):
+        """Calls regex's sub method with self as callable"""
+
+    @abc.abstractmethod
+    def replacen(self, text):
+        """Calls regex's subn method with self as callable"""
+
+
+class RepeatReplacer(Replacer):
+    """Remove repeating characters from text
+
+    The default pattern only applies to non-decimal characters
+
+    >>> rep = RepeatReplacer(max_repeats=3)
+    >>> rep.replace(u"So many $100000 bills.......")
+    u'So many $100000 bills...'
+    """
+    def __init__(self, pattern=u'[^\\d]', max_repeats=3):
+        if max_repeats < 1:
+            raise ValueError("Invalid parameter value max_repeats={}"
+                             .format(max_repeats))
+        prev = u'\\1' * max_repeats
+        pattern = u'(%s)' % pattern
+        regexp = re.compile(pattern + prev + u'+', re.UNICODE)
+        self.replace = partial(regexp.sub, prev)
+        self.replacen = partial(regexp.subn, prev)
+
+    def replace(self):
+        """Remove repeating characters from text
+
+        Method definition needed only for abstract base class
+        (it is overwritten during init)
+        """
+        pass
+
+    def replacen(self):
+        """Remove repeating characters from text
+        while also returning number of substitutions made
+
+        Method definition needed only for abstract base class
+        (it is overwritten during init)
+        """
+        pass
+
+
 class SimpleSentenceTokenizer(object):
 
     def __init__(self, lemmatizer=None, stemmer=None,
                  word_regex=u"\\p{L}+", form='NFKC', stop_words="english",
-                 lru_cache_size=50000):
-        self._normalize = partial(unicodedata.normalize, form)
-        self._word_regex = re.compile(word_regex, re.UNICODE | re.IGNORECASE)
+                 max_char_repeats=3, lru_cache_size=50000):
+        self._unicode_normalize = partial(unicodedata.normalize, form)
+        self._tokenize = re.compile(word_regex, re.UNICODE | re.IGNORECASE).findall
         self._stopwords = frozenset(stopwords.words(stop_words))
         self._sentence_tokenizer = nltk.data.load('tokenizers/punkt/english.pickle')
-        self._lemmatizer = lemmatizer
-        self._fast_lemmatize = clru_cache(maxsize=lru_cache_size)(lemmatizer.lemmatize) if lemmatizer else None
-        self._stemmer = stemmer
+        self._lemmatize = clru_cache(maxsize=lru_cache_size)(lemmatizer.lemmatize) if lemmatizer else None
+        self._stem = stemmer.stem if stemmer else None
         self._pos_tag = pos_tag
+        self._replace_char_repeats = RepeatReplacer(max_repeats=max_char_repeats).replace \
+            if max_char_repeats > 0 \
+            else lambda x: x
 
     def strip_html(self, text):
         with warnings.catch_warnings():
@@ -51,40 +104,43 @@ class SimpleSentenceTokenizer(object):
             text = BeautifulSoup(text).get_text()
         return text
 
-    def word_tokenize(self, text, remove_html=True, remove_stopwords=False):
+    def word_tokenize(self, text, remove_html=True, remove_stopwords=True):
         # 1. Remove HTML
         if remove_html:
             text = self.strip_html(text)
 
         # 2. Normalize Unicode
-        text = self._normalize(text)
+        text = self._unicode_normalize(text)
 
         # 3. Lowercase
         text = text.lower()
 
-        # 4. Tokenize on letters only (simple)
-        words = self._word_regex.findall(text)
+        # 4. Reduce repeated characters to specified number (usually 3)
+        text = self._replace_char_repeats(text)
 
-        # 5. Lemmatize or stem based on POS tags
-        if self._fast_lemmatize:
+        # 5. Tokenize on letters only (simple)
+        words = self._tokenize(text)
+
+        # 6. Lemmatize or stem based on POS tags
+        if self._lemmatize:
             final_words = []
-            lemmatize = self._fast_lemmatize
+            lemmatize = self._lemmatize
             for word, tag in self._pos_tag(words):
                 wordnet_tag = treebank2wordnet(tag)
                 if wordnet_tag is not None:
                     word = lemmatize(word, pos=wordnet_tag)
                 final_words.append(word)
             words = final_words
-        elif self._stemmer:
-            stem = self._stemmer.stem
+        elif self._stem:
+            stem = self._stem
             words = [stem(word) for word in words]
 
-        # 6. Optionally remove stop words (false by default)
+        # 7. Optionally remove stop words (false by default)
         if remove_stopwords:
             stop_words = self._stopwords
             words = [word for word in words if word not in stop_words]
 
-        # 7. Return a list of words
+        # 8. Return a list of words
         return words
 
     def sentence_tokenize(self, text, remove_html=True, remove_stopwords=False):
