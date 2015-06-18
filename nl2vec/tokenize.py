@@ -6,6 +6,8 @@ from pymaptools.inspect import get_object_attrs
 
 
 DEFAULT_FEATURE_MAP = u"""
+(?P<SPECIAL>\\b__([A-Za-z]+)__\\b)
+|
 (?P<EMOTICON_EASTERN_LOW>\\(?[\\+\\^ˇ\\*\\->~][_\\.][\\+\\^ˇ\\*\\-<~]\\)?)
 |
 (?P<EMOTICON_EASTERN_HIGH>\\(?[\\^ˇ\\*][\\-~oO][\\^ˇ\\*]\\)?)
@@ -22,9 +24,9 @@ DEFAULT_FEATURE_MAP = u"""
 |
 (?P<EMOTICON_HEART>(?<![0-9])\\<\\/?3+\\b)
 |
-(?P<ASCIIARROW_RIGHT>([\\-=]?\\>{2,}|[\\-=]+\\>))         # -->, ==>, >>, >>>
+(?P<ASCIIARROW_RIGHT>([\\-=]?\\>{2,}|[\\-=]+\\>))        # -->, ==>, >>, >>>
 |
-(?P<ASCIIARROW_LEFT>(\\<{2,}[\\-=]?|\\<[\\-=]+))          # <<<, <<, <==, <--
+(?P<ASCIIARROW_LEFT>(\\<{2,}[\\-=]?|\\<[\\-=]+))         # <<<, <<, <==, <--
 |
 (?P<COLON>:+(?!\\/\\/))                                  # colon (unless a part of URI scheme)
 |
@@ -83,12 +85,14 @@ class RegexFeatureTokenizer(object):
     dispatch_prefix = 'handle_'
 
     def __init__(self,
+                 groupname_format=u"<%s>",
                  regex=RE_DEFAULT_FEATURES,
                  word_buffer_len=5,
                  debug=False):
 
         # attributes equal to parameter names
         self.regex = regex
+        self.groupname_format = groupname_format
         self.word_buffer_len = word_buffer_len
 
         self.wrap_result = (lambda x, y: (x, y)) if debug else (lambda x, y: x)
@@ -102,6 +106,25 @@ class RegexFeatureTokenizer(object):
             if method.startswith(prefix):
                 result[method[prefix_offset:].upper()] = getattr(self, method)
         return result
+
+    def _group_name(self, match):
+        return self.groupname_format % match.lastgroup
+
+    def _group_tag(self, match, *args):
+        yield self.wrap_result(self._group_name(match), match)
+
+    handle_asciiarrow_left = _group_tag
+    handle_asciiarrow_right = _group_tag
+
+    def handle_special(self, match, *args):
+        tag_name = match.group(match.lastindex + 1)
+        yield self.wrap_result(self.groupname_format % tag_name, match)
+
+    def handle_ellipsis(self, match, *args):
+        if match.group() == u"\u2026":
+            yield self.wrap_result(u"...", match)
+        else:
+            yield self.wrap_result(match.group(), match)
 
     def __call__(self, text):
         return self.tokenize(text)
