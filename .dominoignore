@@ -1,0 +1,26 @@
+env/
+build/
+dist/
+
+# Python
+*.py[cod]
+
+# Vim
+*.sw[op]
+
+# Packages
+.eggs/
+*.egg
+*.egg-info
+__pycache__
+
+# data extensions
+*.clusters
+
+setuptools*.zip
+
+# intermediate files
+all.json.gz
+
+.git/
+__pycache__/

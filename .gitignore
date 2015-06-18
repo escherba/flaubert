@@ -59,4 +59,14 @@ target/
 # Vim
 *.sw[op]
 
+nltk_data/
 data/
+
+# Domino
+.domino/
+results/
+.noLock
+
+cover/
+
+setuptools-*.zip
