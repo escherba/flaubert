@@ -14,6 +14,7 @@ from nltk import pos_tag
 from joblib import Parallel, delayed
 from fastcache import clru_cache
 from pymaptools.io import write_json_line, PathArgumentParser, GzipFileType
+from nl2vec.tokenize import RegexFeatureTokenizer
 from nl2vec.conf import CONFIG
 
 
@@ -64,7 +65,7 @@ class RepeatReplacer(Replacer):
         self.replace = partial(regexp.sub, prev)
         self.replacen = partial(regexp.subn, prev)
 
-    def replace(self):
+    def replace(self, text):
         """Remove repeating characters from text
 
         Method definition needed only for abstract base class
@@ -72,7 +73,7 @@ class RepeatReplacer(Replacer):
         """
         pass
 
-    def replacen(self):
+    def replacen(self, text):
         """Remove repeating characters from text
         while also returning number of substitutions made
 
@@ -82,13 +83,33 @@ class RepeatReplacer(Replacer):
         pass
 
 
+class Translator(Replacer):
+    """Replace certain characters
+    """
+    def __init__(self, translate_map):
+        self._translate_map = {ord(k): ord(v) for k, v in translate_map.iteritems()}
+
+    def replace(self, text):
+        """Replace characters
+        """
+        return text.translate(self._translate_map)
+
+    def replacen(self, text):
+        """Replace characters
+        while also returning number of substitutions made
+
+        Method definition needed only for abstract base class
+        """
+        pass
+
+
 class SimpleSentenceTokenizer(object):
 
     def __init__(self, lemmatizer=None, stemmer=None,
                  word_regex=u"\\p{L}+", form='NFKC', stop_words="english",
-                 max_char_repeats=3, lru_cache_size=50000):
+                 max_char_repeats=3, lru_cache_size=50000, replace_map=None):
         self._unicode_normalize = partial(unicodedata.normalize, form)
-        self._tokenize = re.compile(word_regex, re.UNICODE | re.IGNORECASE).findall
+        self._tokenize = RegexFeatureTokenizer().tokenize
         self._stopwords = frozenset(stopwords.words(stop_words))
         self._sentence_tokenizer = nltk.data.load('tokenizers/punkt/english.pickle')
         self._lemmatize = clru_cache(maxsize=lru_cache_size)(lemmatizer.lemmatize) if lemmatizer else None
@@ -97,6 +118,15 @@ class SimpleSentenceTokenizer(object):
         self._replace_char_repeats = RepeatReplacer(max_repeats=max_char_repeats).replace \
             if max_char_repeats > 0 \
             else lambda x: x
+        self._replace_chars = self.create_char_replacer(replace_map).replace
+
+    @staticmethod
+    def create_char_replacer(replace_map):
+        inverse_replace_map = {}
+        for key, vals in (replace_map or {}).iteritems():
+            for val in vals:
+                inverse_replace_map[val] = key
+        return Translator(inverse_replace_map)
 
     def strip_html(self, text):
         with warnings.catch_warnings():
@@ -115,13 +145,16 @@ class SimpleSentenceTokenizer(object):
         # 3. Lowercase
         text = text.lower()
 
-        # 4. Reduce repeated characters to specified number (usually 3)
+        # 4. Replace certain characters
+        text = self._replace_chars(text)
+
+        # 5. Reduce repeated characters to specified number (usually 3)
         text = self._replace_char_repeats(text)
 
-        # 5. Tokenize on letters only (simple)
+        # 6. Tokenize
         words = self._tokenize(text)
 
-        # 6. Lemmatize or stem based on POS tags
+        # 7. Lemmatize or stem based on POS tags
         if self._lemmatize:
             final_words = []
             lemmatize = self._lemmatize
@@ -135,12 +168,12 @@ class SimpleSentenceTokenizer(object):
             stem = self._stem
             words = [stem(word) for word in words]
 
-        # 7. Optionally remove stop words (false by default)
+        # 8. Optionally remove stop words (false by default)
         if remove_stopwords:
             stop_words = self._stopwords
             words = [word for word in words if word not in stop_words]
 
-        # 8. Return a list of words
+        # 9. Return a list of words
         return words
 
     def sentence_tokenize(self, text, remove_html=True, remove_stopwords=False):

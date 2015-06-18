@@ -1,8 +1,4 @@
-ifeq ($(DOMINO_RUN),1)
-PYENV =
-else
 PYENV = . env/bin/activate;
-endif
 PYTHON = $(PYENV) python
 PIP = $(PYENV) pip
 
@@ -27,7 +23,7 @@ clean_data:
 sentences: $(SENTS)
 	@echo "done"
 
-words: 4(WORDS)
+words: $(WORDS)
 	@echo "done"
 
 nltk: $(NLTK_DIR_DONE)
@@ -45,3 +41,22 @@ $(NLTK_DIR_DONE):
 
 %.words.gz: %.tsv | $(CONFIG) $(NLTK_DIR_DONE)
 	$(PYTHON) -m nl2vec.preprocess --input $^ --output $@
+
+
+ifeq ($(DOMINO_RUN),1)
+VENV_OPTS="--system-site-packages"
+else
+VENV_OPTS="--no-site-packages"
+endif
+
+env: env/bin/activate
+env/bin/activate: requirements.txt
+	test -f $@ || virtualenv $(VENV_OPTS) env
+	$(PYENV) easy_install -U pip
+	$(PYENV) curl https://bootstrap.pypa.io/ez_setup.py | python
+	$(PIP) install setuptools
+	$(PIP) install distribute
+	$(PIP) install wheel
+	$(PIP) install numpy
+	$(PIP) install -r $<
+	touch $@
