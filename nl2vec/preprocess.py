@@ -4,9 +4,9 @@ import unicodedata
 import regex as re
 import sys
 import abc
-import warnings
+import logging
 from itertools import islice
-from bs4 import BeautifulSoup
+from HTMLParser import HTMLParser, HTMLParseError
 from functools import partial
 from nltk.corpus import stopwords
 from nltk.stem import wordnet, PorterStemmer
@@ -24,6 +24,10 @@ TREEBANK2WORDNET = {
     'N': wordnet.wordnet.NOUN,
     'R': wordnet.wordnet.ADV
 }
+
+
+logging.basicConfig(level=logging.WARN)
+LOG = logging.getLogger(__name__)
 
 
 def treebank2wordnet(treebank_tag):
@@ -103,22 +107,107 @@ class Translator(Replacer):
         pass
 
 
+class MLStripper(HTMLParser):
+
+    def __init__(self):
+        HTMLParser.__init__(self)
+        self.reset()
+        self.fed = []
+        self.handled_starttags = []
+        self.handled_startendtags = []
+        self._new_lines = 0
+
+    def append_new_lines(self):
+        for _ in xrange(self._new_lines):
+            self.fed.append("\n")
+            self._new_lines = 0
+
+    def handle_data(self, data):
+        self.append_new_lines()
+        self.fed.append(data)
+
+    def handle_starttag(self, tag, attrs):
+        HTMLParser.handle_starttag(self, tag, attrs)
+        self.handled_starttags.append(tag)
+        if tag == u"br":
+            self._new_lines += 1
+        elif tag == u"p":
+            self._new_lines += 1
+
+    def handle_endtag(self, tag):
+        HTMLParser.handle_endtag(self, tag)
+        if tag == u"p":
+            self._new_lines += 1
+
+    def handle_startendtag(self, tag, attrs):
+        HTMLParser.handle_starttag(self, tag, attrs)
+        self.handled_startendtags.append(tag)
+        if tag == u"br":
+            self._new_lines += 1
+
+    def handle_entityref(self, name):
+        # Ignore HTML entities (already unescaped)
+        self.fed.append(u'&' + name)
+
+    def get_data(self):
+        self.append_new_lines()
+        return u''.join(self.fed)
+
+
+class HTMLCleaner(object):
+
+    _remove_full_comment = partial(
+        (re.compile(ur"(?s)<!--(.*?)-->[\n]?", re.UNICODE)).subn, ur'\1')
+    _remove_partial_comment = partial(
+        (re.compile(ur"<!--", re.UNICODE)).subn, u"")
+
+    def __init__(self, strip_html=True, strip_html_comments=True):
+        self._strip_html = strip_html
+        self._strip_html_comments = strip_html_comments
+
+    def clean(self, html):
+        """Remove HTML markup from the given string
+        """
+        if self._strip_html_comments:
+            html, num_full_comments = self._remove_full_comment(html)
+            html, num_partial_comments = self._remove_partial_comment(html)
+        if html and self._strip_html:
+            stripper = MLStripper()
+            try:
+                stripper.feed(html)
+            except HTMLParseError as err:
+                logging.exception(err)
+            else:
+                html = stripper.get_data().strip()
+        return html
+
+
 class SimpleSentenceTokenizer(object):
 
     def __init__(self, lemmatizer=None, stemmer=None,
-                 word_regex=u"\\p{L}+", form='NFKC', stop_words="english",
+                 unicode_form='NFKC', nltk_stop_words="english",
+                 nltk_sentence_tokenizer='tokenizers/punkt/english.pickle',
                  max_char_repeats=3, lru_cache_size=50000, replace_map=None):
-        self._unicode_normalize = partial(unicodedata.normalize, form)
+        self._unicode_normalize = partial(unicodedata.normalize, unicode_form)
         self._tokenize = RegexFeatureTokenizer().tokenize
-        self._stopwords = frozenset(stopwords.words(stop_words))
-        self._sentence_tokenizer = nltk.data.load('tokenizers/punkt/english.pickle')
+        self._stopwords = frozenset(stopwords.words(nltk_stop_words))
+        self._sentence_tokenize = nltk.data.load(nltk_sentence_tokenizer).tokenize
         self._lemmatize = clru_cache(maxsize=lru_cache_size)(lemmatizer.lemmatize) if lemmatizer else None
         self._stem = stemmer.stem if stemmer else None
         self._pos_tag = pos_tag
-        self._replace_char_repeats = RepeatReplacer(max_repeats=max_char_repeats).replace \
-            if max_char_repeats > 0 \
-            else lambda x: x
+        self._replace_char_repeats = \
+            RepeatReplacer(max_repeats=max_char_repeats).replace \
+            if max_char_repeats > 0 else self._identity
         self._replace_chars = self.create_char_replacer(replace_map).replace
+        self.strip_html = HTMLCleaner().clean
+
+        # tokenize a dummy string b/c lemmatizer and/or other tools can take
+        # a while to initialize screwing up our attempts to measure performance
+        self.tokenize(u"dummy string")
+
+    @staticmethod
+    def _identity(arg):
+        return arg
 
     @staticmethod
     def create_char_replacer(replace_map):
@@ -127,12 +216,6 @@ class SimpleSentenceTokenizer(object):
             for val in vals:
                 inverse_replace_map[val] = key
         return Translator(inverse_replace_map)
-
-    def strip_html(self, text):
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            text = BeautifulSoup(text).get_text()
-        return text
 
     def word_tokenize(self, text, remove_html=True, remove_stopwords=True):
         # 1. Remove HTML
@@ -180,7 +263,7 @@ class SimpleSentenceTokenizer(object):
         if remove_html:
             text = self.strip_html(text)
         sentences = []
-        for raw_sentence in self._sentence_tokenizer.tokenize(text):
+        for raw_sentence in self._sentence_tokenize(text):
             if not raw_sentence:
                 continue
             words = self.word_tokenize(raw_sentence, remove_html=remove_html,
@@ -224,10 +307,14 @@ REGISTRY = {
 }
 
 
-TOKENIZER = SimpleSentenceTokenizer(
-    lemmatizer=REGISTRY[CONFIG['lemmatizer']],
-    stemmer=REGISTRY[CONFIG['stemmer']],
-    **CONFIG['tokenizer'])
+def tokenizer_builder():
+    return SimpleSentenceTokenizer(
+        lemmatizer=REGISTRY[CONFIG['lemmatizer']],
+        stemmer=REGISTRY[CONFIG['stemmer']],
+        **CONFIG['tokenizer'])
+
+
+TOKENIZER = tokenizer_builder()
 
 
 def get_sentences(text, **kwargs):

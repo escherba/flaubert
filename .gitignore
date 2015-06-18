@@ -66,3 +66,7 @@ data/
 .domino/
 results/
 .noLock
+
+cover/
+
+setuptools-*.zip

@@ -5,12 +5,6 @@ from collections import deque
 from pymaptools.inspect import get_object_attrs
 
 
-RE_SINGLE_APOSTROPHES = re.compile(u"[\\'\\u0060\\u2018\\u2019\\u201a\\u201b\\u275b\\u275c]", re.UNICODE)
-RE_DOUBLE_APOSTROPHES = re.compile(u'[\\"\\u201c\\u201d\\u201e\\u201f\\u275d\\u275e]', re.UNICODE)
-RE_TIMEOFDAY = re.compile(u'[AaPp][Mm]', re.UNICODE)
-RE_THOUSAND_SPACING = re.compile(u'[,\\s]', re.UNICODE)
-
-
 DEFAULT_FEATURE_MAP = u"""
 (?P<EMOTICON_EASTERN_LOW>\\(?[\\+\\^ˇ\\*\\->~][_\\.][\\+\\^ˇ\\*\\-<~]\\)?)
 |
@@ -44,11 +38,8 @@ DEFAULT_FEATURE_MAP = u"""
 |
 (?P<ABBREV3>\\b(?:\\p{L}\\.){2,})                        # abbreviation with periods like U.S.
 |
-(\\p{L}+)                                                   # any word
-""" % dict(
-    single_apostrophe=RE_SINGLE_APOSTROPHES.pattern,
-)
-
+(\\p{L}+)                                                # any non-zero sequence of letters
+"""
 
 RE_DEFAULT_FEATURES = re.compile(DEFAULT_FEATURE_MAP, re.VERBOSE | re.UNICODE)
 

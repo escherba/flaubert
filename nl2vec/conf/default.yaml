@@ -1,6 +1,7 @@
 tokenizer:
-    form: "NFKC"
-    stop_words: "english"
+    unicode_form: "NFKC"
+    nltk_stop_words: "english"
+    nltk_sentence_tokenizer: "tokenizers/punkt/english.pickle"
     max_char_repeats: 3
     lru_cache_size: 50000   # cache size (for wordnet lemmatizer only at the moment)
     replace_map: {
