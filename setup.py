@@ -24,8 +24,7 @@ def parse_reqs(reqs):
     pkg_reqs = []
     dep_links = []
     for req in reqs:
-        # find things like
-        # --find-links http://packages.livefyre.com/buildout/packages/
+        # find things like `--find-links <URL>`
         dep_link_info = SKIP_RE.match(req)
         if dep_link_info is not None:
             url = dep_link_info.group(1)
