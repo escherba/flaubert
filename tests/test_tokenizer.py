@@ -3,9 +3,10 @@ from tests import count_prefix
 from functools import partial
 from nl2vec.preprocess import TOKENIZER
 from nl2vec.tokenize import RegexFeatureTokenizer
+from pymaptools.utils import SetComparisonMixin
 
 
-class TestFeatureTokens(unittest.TestCase):
+class TestFeatureTokens(unittest.TestCase, SetComparisonMixin):
 
     maxDiff = 2000
 
@@ -47,3 +48,23 @@ class TestFeatureTokens(unittest.TestCase):
         self.assertEqual(u'haha ! ))) )) how sad ((', reconstructed)
         group_names = [m.lastgroup for m in zip(*self.base_tokenizer.tokenize(text))[1]]
         self.assertEqual(3, count_prefix(u"EMOTICON", group_names))
+
+    def test_ascii_arrow(self):
+        text = u"Look here -->> such doge <<<"
+        tokens = self.tokenize(text)
+        self.assertSetContainsSubset(
+            {'<ASCIIARROW_RIGHT>', '<ASCIIARROW_LEFT>'}, tokens)
+
+    def test_abbrev(self):
+        text = u"S&P index of X-men in the U.S."
+        tokens = self.tokenize(text)
+        self.assertListEqual(
+            [u's&p', u'index', u'of', u'x-men', u'in', u'the', u'u.s.'],
+            tokens)
+
+    def test_url_email(self):
+        text = u"a dummy comment with http://www.google.com/ and sergey@google.com"
+        tokens = self.tokenize(text)
+        self.assertListEqual(
+            [u'a', u'dummy', u'comment', u'with', u'<uri>', u'and', u'<email>'],
+            tokens)

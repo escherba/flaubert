@@ -5,6 +5,7 @@ import regex as re
 import sys
 import abc
 import logging
+from pymaptools.iter import roundrobin
 from itertools import islice
 from HTMLParser import HTMLParser, HTMLParseError
 from functools import partial
@@ -15,6 +16,7 @@ from joblib import Parallel, delayed
 from fastcache import clru_cache
 from pymaptools.io import write_json_line, PathArgumentParser, GzipFileType
 from nl2vec.tokenize import RegexFeatureTokenizer
+from nl2vec.urls import URLParser, URI
 from nl2vec.conf import CONFIG
 
 
@@ -184,13 +186,14 @@ class HTMLCleaner(object):
 
 class SimpleSentenceTokenizer(object):
 
-    def __init__(self, lemmatizer=None, stemmer=None,
+    def __init__(self, lemmatizer=None, stemmer=None, url_parser=None,
                  unicode_form='NFKC', nltk_stop_words="english",
                  nltk_sentence_tokenizer='tokenizers/punkt/english.pickle',
                  max_char_repeats=3, lru_cache_size=50000, replace_map=None):
         self._unicode_normalize = partial(unicodedata.normalize, unicode_form)
         self._tokenize = RegexFeatureTokenizer().tokenize
         self._stopwords = frozenset(stopwords.words(nltk_stop_words))
+        self._parse_urls = url_parser.parse_urls if url_parser else None
         self._sentence_tokenize = nltk.data.load(nltk_sentence_tokenizer).tokenize
         self._lemmatize = clru_cache(maxsize=lru_cache_size)(lemmatizer.lemmatize) if lemmatizer else None
         self._stem = stemmer.stem if stemmer else None
@@ -217,27 +220,30 @@ class SimpleSentenceTokenizer(object):
                 inverse_replace_map[val] = key
         return Translator(inverse_replace_map)
 
-    def word_tokenize(self, text, remove_html=True, remove_stopwords=True):
+    def _preprocess_text(self, text):
         # 1. Remove HTML
-        if remove_html:
-            text = self.strip_html(text)
-
+        text = self.strip_html(text)
         # 2. Normalize Unicode
         text = self._unicode_normalize(text)
-
-        # 3. Lowercase
-        text = text.lower()
-
-        # 4. Replace certain characters
+        # 3. Replace certain characters
         text = self._replace_chars(text)
-
-        # 5. Reduce repeated characters to specified number (usually 3)
+        # 4. whiteout URLs
+        text = self._whiteout_urls(text)
+        # 5. Lowercase
+        text = text.lower()
+        # 6. Reduce repeated characters to specified number (usually 3)
         text = self._replace_char_repeats(text)
+        return text
 
-        # 6. Tokenize
+    def word_tokenize(self, text, preprocess=True, remove_stopwords=True):
+        # 1. Misc. preprocessing
+        if preprocess:
+            text = self._preprocess_text(text)
+
+        # 2. Tokenize
         words = self._tokenize(text)
 
-        # 7. Lemmatize or stem based on POS tags
+        # 3. Lemmatize or stem based on POS tags
         if self._lemmatize:
             final_words = []
             lemmatize = self._lemmatize
@@ -251,23 +257,40 @@ class SimpleSentenceTokenizer(object):
             stem = self._stem
             words = [stem(word) for word in words]
 
-        # 8. Optionally remove stop words (false by default)
+        # 4. Optionally remove stop words (false by default)
         if remove_stopwords:
             stop_words = self._stopwords
             words = [word for word in words if word not in stop_words]
 
-        # 9. Return a list of words
+        # 5. Return a list of words
         return words
 
-    def sentence_tokenize(self, text, remove_html=True, remove_stopwords=False):
-        if remove_html:
-            text = self.strip_html(text)
+    def _whiteout_urls(self, text):
+        """
+        this whites out any URLs or emails found in text
+        """
+        if self._parse_urls:
+            final_els = []
+            for element in roundrobin(*self._parse_urls(text)):
+                if isinstance(element, URI):
+                    final_els.append(u"__%s__" % element.entity_type)
+                else:
+                    final_els.append(element)
+            text = u''.join(final_els)
+        return text
+
+    def sentence_tokenize(self, text, preprocess=True,
+                          remove_stopwords=False):
+        if preprocess:
+            text = self._preprocess_text(text)
+
         sentences = []
         for raw_sentence in self._sentence_tokenize(text):
             if not raw_sentence:
                 continue
-            words = self.word_tokenize(raw_sentence, remove_html=remove_html,
-                                       remove_stopwords=remove_stopwords)
+            words = self.word_tokenize(
+                raw_sentence, preprocess=False,
+                remove_stopwords=remove_stopwords)
             if not words:
                 continue
             sentences.append(words)
@@ -311,6 +334,7 @@ def tokenizer_builder():
     return SimpleSentenceTokenizer(
         lemmatizer=REGISTRY[CONFIG['lemmatizer']],
         stemmer=REGISTRY[CONFIG['stemmer']],
+        url_parser=URLParser(),
         **CONFIG['tokenizer'])
 
 
