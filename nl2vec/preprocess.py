@@ -6,7 +6,6 @@ import sys
 import abc
 import logging
 from itertools import islice
-from HTMLParser import HTMLParser, HTMLParseError
 from functools import partial
 from nltk.corpus import stopwords
 from nltk.stem import wordnet, PorterStemmer
@@ -17,6 +16,7 @@ from pymaptools.io import write_json_line, PathArgumentParser, GzipFileType
 from nl2vec.tokenize import RegexFeatureTokenizer
 from nl2vec.urls import URLParser
 from nl2vec.conf import CONFIG
+from nl2vec.HTMLParser import HTMLParser, HTMLParseError
 
 
 TREEBANK2WORDNET = {

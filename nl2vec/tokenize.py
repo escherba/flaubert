@@ -8,21 +8,21 @@ from pymaptools.inspect import get_object_attrs
 DEFAULT_FEATURE_MAP = u"""
 (?P<SPECIAL>\\b__([A-Za-z]+)__\\b)
 |
-(?P<EMOTICON_EASTERN_LOW>\\(?[\\+\\^ˇ\\*\\->~][_\\.][\\+\\^ˇ\\*\\-<~]\\)?)
+(?P<EMOTIC_EAST_LO>\\(?[\\+\\^ˇ\\*\\->~][_\\.][\\+\\^ˇ\\*\\-<~]\\)?)
 |
-(?P<EMOTICON_EASTERN_HIGH>\\(?[\\^ˇ\\*][\\-~oO][\\^ˇ\\*]\\)?)
+(?P<EMOTIC_EAST_HI>\\(?[\\^ˇ\\*][\\-~oO][\\^ˇ\\*]\\)?)
 |
-(?P<EMOTICON_WESTERN_LEFT>\\>?(?:=|(?:[:;]|(?<![\\w\\(\\)])[Bb])[\\-=\\^']?)(?:[\\(\\)\\*\\[\\]\\|]+|[cCoOpPdD]+\\b))
+(?P<EMOTIC_WEST_LEFT>\\>?(?:=|(?:[:;]|(?<![\\w\\(\\)])[Bb])[\\-=\\^']?)([\\(\\)\\*\\[\\]\\|]+|[cCoOpPdD]\\b))
 |
-(?P<EMOTICON_WESTERN_RIGHT>(?<!\\w)[\\(\\)\\[\\]\\|]+(?:(?:[\\-=\\^'][:;]?|[\\-=\\^']?[:;])(?![\\w\\(\\)])|=))
+(?P<EMOTIC_WEST_RIGHT>(?<!\\w)([\\(\\)\\[\\]\\|]+)(?:(?:[\\-=\\^'][:;]?|[\\-=\\^']?[:;])(?![\\w\\(\\)])|=))
 |
-(?P<EMOTICON_WESTERN_LEFT_ALT>(?<![0-9])[:;]3+\\b)
+(?P<EMOTIC_WEST_LEFT_HAPPY>(?<![0-9])[:;]3+\\b)
 |
-(?P<EMOTICON_RUSSIAN_HAPPY>\\){2,})
+(?P<EMOTIC_RUSS_HAPPY>\\){2,})
 |
-(?P<EMOTICON_RUSSIAN_SAD>\\({2,})
+(?P<EMOTIC_RUSS_SAD>\\({2,})
 |
-(?P<EMOTICON_HEART>(?<![0-9])\\<\\/?3+\\b)
+(?P<EMOTIC_HEART>(?<![0-9])\\<(\\/?)3+\\b)
 |
 (?P<ASCIIARROW_RIGHT>([\\-=]?\\>{2,}|[\\-=]+\\>))        # -->, ==>, >>, >>>
 |
@@ -111,20 +111,50 @@ class RegexFeatureTokenizer(object):
         return self.groupname_format % match.lastgroup
 
     def _group_tag(self, match, *args):
-        yield self.wrap_result(self._group_name(match), match)
+        yield self._group_name(match)
 
     handle_asciiarrow_left = _group_tag
     handle_asciiarrow_right = _group_tag
 
     def handle_special(self, match, *args):
         tag_name = match.group(match.lastindex + 1).upper()
-        yield self.wrap_result(self.groupname_format % tag_name, match)
+        yield self.groupname_format % tag_name
+
+    def handle_emotic_west_left(self, match, *args):
+        mouth = match.group(match.lastindex + 1)[0]
+        group_name = match.lastgroup
+        if mouth in u")]pdPD":
+            group_name = u'_'.join([group_name, 'HAPPY'])
+        elif mouth in u"([cC":
+            group_name = u'_'.join([group_name, 'SAD'])
+        yield match.group()
+        yield self.groupname_format % group_name
+
+    def handle_emotic_west_right(self, match, *args):
+        mouth = match.group(match.lastindex + 1)[-1]
+        group_name = match.lastgroup
+        if mouth in u"([":
+            group_name = u'_'.join([group_name, 'HAPPY'])
+        elif mouth in u")]":
+            group_name = u'_'.join([group_name, 'SAD'])
+        yield match.group()
+        yield self.groupname_format % group_name
+
+    def handle_emotic_heart(self, match, *args):
+        group_name = match.lastgroup
+        broken = match.group(match.lastindex + 1)
+        if broken:
+            group_name = u'_'.join([group_name, 'SAD'])
+        else:
+            group_name = u'_'.join([group_name, 'HAPPY'])
+        yield match.group()
+        yield self.groupname_format % group_name
 
     def handle_ellipsis(self, match, *args):
         if match.group() == u"\u2026":
-            yield self.wrap_result(u"...", match)
+            yield u"..."
         else:
-            yield self.wrap_result(match.group(), match)
+            yield match.group()
 
     def __call__(self, text):
         return self.tokenize(text)
