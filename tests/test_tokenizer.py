@@ -66,5 +66,5 @@ class TestFeatureTokens(unittest.TestCase, SetComparisonMixin):
         text = u"a dummy comment with http://www.google.com/ and sergey@google.com"
         tokens = self.tokenize(text)
         self.assertListEqual(
-            [u'a', u'dummy', u'comment', u'with', u'<uri>', u'and', u'<email>'],
+            [u'a', u'dummy', u'comment', u'with', u'<URI>', u'and', u'<EMAIL>'],
             tokens)

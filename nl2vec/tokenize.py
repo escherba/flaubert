@@ -117,7 +117,7 @@ class RegexFeatureTokenizer(object):
     handle_asciiarrow_right = _group_tag
 
     def handle_special(self, match, *args):
-        tag_name = match.group(match.lastindex + 1)
+        tag_name = match.group(match.lastindex + 1).upper()
         yield self.wrap_result(self.groupname_format % tag_name, match)
 
     def handle_ellipsis(self, match, *args):
