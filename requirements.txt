@@ -1,5 +1,6 @@
+virtualenv
+rfc3987
 gensim
-beautifulsoup4
 nltk
 regex
 pandas

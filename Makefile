@@ -1,47 +1,54 @@
-ifeq ($(DOMINO_RUN),1)
-PYENV =
-else
+.PHONY: clean nuke test coverage
+
 PYENV = . env/bin/activate;
-endif
 PYTHON = $(PYENV) python
 PIP = $(PYENV) pip
+EXTRAS_REQS := $(wildcard requirements-*.txt)
 
-CONFIG = ./nl2vec/conf/default.yaml
-NLTK_DIR = nltk_data
-NLTK_DIR_DONE = $(NLTK_DIR)/make.done
-DATA_DIR = data
-ALL_DATA := $(shell find $(DATA_DIR) -type f -name '*.zip')
-TEST = $(DATA_DIR)/testData.tsv
-LABELED_TRAIN = $(DATA_DIR)/labeledTrainData.tsv
-UNLABELED_TRAIN =  $(DATA_DIR)/unlabeledTrainData.tsv
-TRAIN = $(LABELED_TRAIN) $(UNLABELED_TRAIN)
+include analysis.mk
 
-export NLTK_DATA=$(NLTK_DIR)
+DISTRIBUTE = sdist bdist_wheel
 
-SENTS := $(ALL_DATA:.tsv.zip=.sents.gz)
-WORDS := $(ALL_DATA:.tsv.zip=.words.gz)
+release: env
+	$(PYTHON) setup.py $(DISTRIBUTE) upload -r livefyre
 
-clean_data:
-	rm -rf $(SENTS) $(WORDS)
+package: env
+	$(PYTHON) setup.py $(DISTRIBUTE)
 
-sentences: $(SENTS)
-	@echo "done"
+test: extras
+	$(PYTHON) `which nosetests` $(NOSEARGS)
 
-words: 4(WORDS)
-	@echo "done"
-
-nltk: $(NLTK_DIR_DONE)
-	@echo "done"
-
-$(NLTK_DIR_DONE):
-	$(PYTHON) -m nltk.downloader -d $(NLTK_DIR) wordnet stopwords punkt maxent_treebank_pos_tagger
+extras: env/make.extras
+env/make.extras: $(EXTRAS_REQS) | env
+	rm -rf env/build
+	$(PYENV) for req in $?; do pip install -r $$req; done
 	touch $@
 
-%.tsv: %.tsv.zip
-	unzip -p $^ > $@
+nuke: clean
+	rm -rf *.egg *.egg-info env cover coverage.xml nosetests.xml
 
-%.sents.gz: %.tsv | $(CONFIG) $(NLTK_DIR_DONE)
-	$(PYTHON) -m nl2vec.preprocess --sentences --input $^ --output $@
+clean:
+	python setup.py clean
+	rm -rf dist build
+	find . -path ./env -prune -o -type f -regex '.*\.pyc' -or -regex '.*\-theirs\..*' -exec rm {} \;
 
-%.words.gz: %.tsv | $(CONFIG) $(NLTK_DIR_DONE)
-	$(PYTHON) -m nl2vec.preprocess --input $^ --output $@
+coverage: test
+	open cover/index.html
+
+ifeq ($(DOMINO_RUN),1)
+VENV_OPTS="--system-site-packages"
+else
+VENV_OPTS="--no-site-packages"
+endif
+
+env: env/bin/activate
+env/bin/activate: requirements.txt setup.py
+	test -f $@ || virtualenv $(VENV_OPTS) env
+	$(PYENV) easy_install -U pip
+	$(PYENV) curl https://bootstrap.pypa.io/ez_setup.py | python
+	$(PIP) install setuptools
+	$(PIP) install distribute
+	$(PIP) install wheel
+	$(PIP) install numpy
+	$(PIP) install -r $<
+	touch $@
