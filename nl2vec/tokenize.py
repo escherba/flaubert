@@ -4,6 +4,31 @@ import regex as re
 from collections import deque
 from pymaptools.inspect import get_object_attrs
 
+RE_FIND_STARS = re.compile(u'\\*').findall
+
+NUM2DEC = {
+    u'zero': 0,
+    u'one': 1,
+    u'two': 2,
+    u'three': 3,
+    u'four': 4,
+    u'five': 5,
+    u'six': 6,
+    u'seven': 7,
+    u'eight': 8,
+    u'nine': 9,
+    u'ten': 10,
+}
+
+
+def count_stars(num_stars):
+    dec_num_stars = NUM2DEC.get(num_stars)
+    if dec_num_stars is None:
+        dec_num_stars = len(RE_FIND_STARS(num_stars))
+    if dec_num_stars == 0:
+        dec_num_stars = int(num_stars)
+    return float(dec_num_stars)
+
 
 DEFAULT_FEATURE_MAP = u"""
 (?P<SPECIAL>\\b__([A-Za-z]+)__\\b)
@@ -24,6 +49,8 @@ DEFAULT_FEATURE_MAP = u"""
 |
 (?P<EMOTIC_HEART>(?<![0-9])\\<(\\/?)3+\\b)
 |
+(?P<STARRATING>([0-9]{1,2}|(?:\\*\\s?)+|%(number)s)(\\.5|[\\s-]*1\\s?\\/\\s?2)?\\s*(?:stars?)?\\s*(?:\\/|\\(?out\\s+of\\s)\\s*(4|5|10|four|five|ten)(?:\\s+stars)?)
+|
 (?P<ASCIIARROW_RIGHT>([\\-=]?\\>{2,}|[\\-=]+\\>))        # -->, ==>, >>, >>>
 |
 (?P<ASCIIARROW_LEFT>(\\<{2,}[\\-=]?|\\<[\\-=]+))         # <<<, <<, <==, <--
@@ -41,7 +68,9 @@ DEFAULT_FEATURE_MAP = u"""
 (?P<ABBREV3>\\b(?:\\p{L}\\.){2,})                        # abbreviation with periods like U.S.
 |
 (\\p{L}+)                                                # any non-zero sequence of letters
-"""
+""" % dict(
+    number=u'|'.join(NUM2DEC.keys())
+)
 
 RE_DEFAULT_FEATURES = re.compile(DEFAULT_FEATURE_MAP, re.VERBOSE | re.UNICODE)
 
@@ -149,6 +178,19 @@ class RegexFeatureTokenizer(object):
             group_name = u'_'.join([group_name, 'HAPPY'])
         yield match.group()
         yield self.groupname_format % group_name
+
+    def handle_starrating(self, match, text, tokens):
+        """
+        Convert miscellaneous ways to write a star rating into something like
+        4/10
+        """
+        num_stars = count_stars(match.group(match.lastindex + 1))
+        modifier = match.group(match.lastindex + 2)
+        out_of = count_stars(match.group(match.lastindex + 3))
+        if modifier:
+            num_stars += 0.5
+        num_stars *= (10.0 / out_of)
+        yield u"<%d / %d>" % (num_stars, 10)
 
     def handle_ellipsis(self, match, *args):
         if match.group() == u"\u2026":
