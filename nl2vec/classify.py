@@ -139,7 +139,7 @@ def parse_args(args=None):
 
 
 def run(args):
-    model = word2vec.Word2Vec.load(args.input)
+    model = word2vec.Word2Vec.load(args.word2vec)
     _, num_features = model.syn0.shape
     clean_train_reviews = []
     for line in args.wordlist:
