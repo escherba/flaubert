@@ -87,7 +87,7 @@ setup(
     author="Eugene Scherba",
     author_email="escherba@gmail.com",
     description=("Tools for word2vec-based sentiment analysis"),
-    url='https://github.com/escherba/nl2vec',
+    url='https://github.com/escherba/flaubert',
     packages=find_packages(exclude=['tests']),
     long_description=resource_string(__name__, 'README.rst'),
     install_requires=INSTALL_REQUIRES,
