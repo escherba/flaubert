@@ -7,7 +7,7 @@ TEST = $(DATA_DIR)/testData
 LABELED_TRAIN = $(DATA_DIR)/labeledTrainData
 UNLABELED_TRAIN =  $(DATA_DIR)/unlabeledTrainData
 TRAIN = $(LABELED_TRAIN) $(UNLABELED_TRAIN)
-WORD2VEC = $(DATA_DIR)/300features_40minwords_10context.2
+WORD2VEC = $(DATA_DIR)/300features_40minwords_10context
 
 export NLTK_DATA=$(NLTK_DIR)
 
@@ -37,6 +37,7 @@ train: $(LABELED_TRAIN).tsv.zip $(LABELED_TRAIN).words.gz $(WORD2VEC)
 	rm -f $(LABELED_TRAIN).tsv
 
 $(WORD2VEC): $(LABELED_TRAIN).sents.gz $(UNLABELED_TRAIN).sents.gz
+	@echo "Creating word2vec model at $(WORD2VEC)"
 	python -m flaubert.pretrain \
 		--sentences $^ \
 		--output $@

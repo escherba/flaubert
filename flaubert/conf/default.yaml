@@ -17,3 +17,9 @@ tokenizer:
 
 lemmatizer: wordnet  # null or "wordnet"
 stemmer: null   # null or "porter"
+
+word2vec:
+    size: 300       # Number of features
+    min_count: 40   # Minimum word count
+    window: 10      # Context window size
+    sample: 0.001   # Downsample setting for frequent words
