@@ -6,7 +6,7 @@ from collections import deque
 from pymaptools.inspect import get_object_attrs
 
 RE_FIND_STARS = re.compile(u'\\*').findall
-RE_STRIP_SPACE_DASH = partial(re.compile(u'[\\s-]+').sub, u'')
+RE_STRIP_NOISE = partial(re.compile(u'[\\s:\\-]+').sub, u'')
 
 NUM2DEC = {
     u'zero': 0,
@@ -60,6 +60,8 @@ DEFAULT_FEATURE_MAP = u"""
 (?P<STARRATING_X>\\b(?:a|my)\\s+([0-9](?:\\.[0-9])?)[\\s-]+(?:star\\s+)?rating\\b)
 |
 (?P<MPAARATING>pg[-\\s]?13|nc[-\\s]?17)
+|
+(?P<GRADE>\\bgrade\\s*:?\\s*[a-f]\\b\\+?)
 |
 (?P<ASCIIARROW_RIGHT>([\\-=]?\\>{2,}|[\\-=]+\\>))        # -->, ==>, >>, >>>
 |
@@ -214,8 +216,11 @@ class RegexFeatureTokenizer(object):
         num_stars = int(round(float(match.group(match.lastindex + 1))))
         yield u"<%d / %d>" % (num_stars, 10)
 
-    def handle_mpaarating(self, match, *args):
-        yield self.groupname_format % RE_STRIP_SPACE_DASH(match.group()).upper()
+    def entity_handler(self, match, *args):
+        yield self.groupname_format % RE_STRIP_NOISE(match.group()).upper()
+
+    handle_mpaarating = entity_handler
+    handle_grade = entity_handler
 
     def handle_ellipsis(self, match, *args):
         if match.group() == u"\u2026":
