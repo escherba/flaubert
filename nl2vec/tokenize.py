@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 
 import regex as re
+from functools import partial
 from collections import deque
 from pymaptools.inspect import get_object_attrs
 
 RE_FIND_STARS = re.compile(u'\\*').findall
+RE_STRIP_SPACE_DASH = partial(re.compile(u'[\\s-]+').sub, u'')
 
 NUM2DEC = {
     u'zero': 0,
@@ -51,7 +53,11 @@ DEFAULT_FEATURE_MAP = u"""
 |
 (?P<EMOTIC_HEART>(?<![0-9])\\<(\\/?)3+\\b)
 |
-(?P<STARRATING>([0-9]{1,2}|(?:\\*\\s?)+|%(number)s)(\\.5|[\\s-]*1\\s?\\/\\s?2)?\\s*(?:stars?)?\\s*(?:\\/|\\(?out\\s+of\\s)\\s*(4|5|10|four|five|ten)(?:\\s+stars)?)
+(?P<STARRATING>([0-9]{1,2}|(?:\\*\\s?)+|%(number)s)(\\.[0-9]|[\\s-]*[1-9]\\s?\\/\\s?[1-9])?\\s*(?:stars?(?:\\s+rating)?)?\\s*(?:\\/|\\(?out\\s+of\\s)\\s*(4|5|10|four|five|ten)(?:\\s+stars)?)
+|
+(?P<STARRATING_TEN>\\b(?:a|full)\\s10\\b)
+|
+(?P<MPAARATING>pg[-\\s]?13|nc[-\\s]?17)
 |
 (?P<ASCIIARROW_RIGHT>([\\-=]?\\>{2,}|[\\-=]+\\>))        # -->, ==>, >>, >>>
 |
@@ -191,9 +197,19 @@ class RegexFeatureTokenizer(object):
         modifier = match.group(match.lastindex + 2)
         out_of = count_stars(match.group(match.lastindex + 3))
         if modifier:
-            num_stars += 0.5
+            if u'/' in modifier:
+                numer, denom = modifier.split(u'/')
+                numer, denom = float(numer), float(denom)
+                modifier = numer / denom
+            else:
+                modifier = float(modifier)
+            num_stars += modifier
         num_stars *= (10.0 / out_of)
+        num_stars = int(round(num_stars))
         yield u"<%d / %d>" % (num_stars, 10)
+
+    def handle_mpaarating(self, match, *args):
+        yield self.groupname_format % RE_STRIP_SPACE_DASH(match.group()).upper()
 
     def handle_ellipsis(self, match, *args):
         if match.group() == u"\u2026":
