@@ -1,3 +1,5 @@
+virtualenv
+rfc3987
 gensim
 nltk
 regex

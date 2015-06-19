@@ -16,10 +16,10 @@ WORDS := $(ALL_DATA:.tsv.zip=.words.gz)
 clean_data:
 	rm -rf $(SENTS) $(WORDS)
 
-sentences: $(SENTS)
+sentences: $(SENTS) | env
 	@echo "done"
 
-words: $(WORDS)
+words: $(WORDS) | env
 	@echo "done"
 
 nltk: $(NLTK_DIR_DONE)
