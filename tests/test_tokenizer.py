@@ -153,3 +153,15 @@ class TestFeatureTokens(unittest.TestCase, SetComparisonMixin):
         text = u"mindless B-grade \"entertainment.\""
         tokens = self.tokenize(text)
         self.assertSetContainsSubset([u'<GRADE_B>'], tokens)
+
+    def test_decade_1(self):
+        text = u"Nice 1950s & 60s \"Americana\""
+        tokens = self.tokenize(text)
+        self.assertSetContainsSubset(
+            [u'nice', u'1950', u'60', u'americana'], tokens)
+
+    def test_decade_2(self):
+        text = u"Nice 1950s & 60's \"Americana\""
+        tokens = self.tokenize(text)
+        self.assertSetContainsSubset(
+            [u'nice', u'1950', u'60', u'americana'], tokens)

@@ -65,6 +65,10 @@ DEFAULT_FEATURE_MAP = u"""
 |
 (?P<GRADE_PRE>\\b([a-f]\\+?)\\s*-?\\s*grade\\b)
 |
+(?P<THREED>\\b3\\-?d\\b)
+|
+(?P<DECADE>\\b((?:18|19|20)?[0-9]{2})'?s?\\b)
+|
 (?P<ASCIIARROW_RIGHT>([\\-=]?\\>{2,}|[\\-=]+\\>))        # -->, ==>, >>, >>>
 |
 (?P<ASCIIARROW_LEFT>(\\<{2,}[\\-=]?|\\<[\\-=]+))         # <<<, <<, <==, <--
@@ -221,7 +225,13 @@ class RegexFeatureTokenizer(object):
     def simple_entity_handler(self, match, *args):
         yield self.groupname_format % RE_STRIP_NOISE(match.group()).upper()
 
+    def extractor_handler(self, match, *args):
+        extracted = match.group(match.lastindex + 1).upper()
+        yield extracted
+
     handle_mpaarating = simple_entity_handler
+    handle_threed = simple_entity_handler
+    handle_decade = extractor_handler
 
     def grade_handler(self, match, *args):
         grade = match.group(match.lastindex + 1).upper()
