@@ -5,6 +5,7 @@ import regex as re
 from functools import partial
 from pkg_resources import resource_filename
 from pymaptools.io import read_text_resource
+from pymaptools.iter import roundrobin
 from pymaptools.types import Struct
 
 
@@ -252,7 +253,7 @@ class URLParser(object):
             http://en.wikipedia.org/wiki/URI_scheme#Generic_syntax
         """
         uri_types = [t.strip() for t in uri_types.split(',')]
-        self.RE_URL_FINDER = URLRegexBuilder(
+        self._re_url_iter = URLRegexBuilder(
             uri_require_scheme=uri_require_scheme,
             uri_valid_tlds=uri_valid_tlds,
             uri_specific_tlds=uri_specific_tlds,
@@ -298,16 +299,16 @@ class URLParser(object):
         end = 0
         prev_end = 0
         placeholder_format = self._placeholder_format
-        for match in self.RE_URL_FINDER(text, overlapped=overlapped):
+        for match in self._re_url_iter(text, overlapped=overlapped):
             matched_string, num_trailing = self.RE_URL_TRAILING(match.group())
             start, cursor = match.span()
             if num_trailing > 0:
                 cursor -= num_trailing
-                match = self.RE_URL_FINDER(matched_string).next()
+                match = self._re_url_iter(matched_string).next()
             # strip closing parenthesis if no opening found
             if matched_string[-1] == u')' and u'(' not in matched_string:
                 cursor -= 1
-                match = self.RE_URL_FINDER(matched_string[0:-1]).next()
+                match = self._re_url_iter(matched_string[0:-1]).next()
             cursor = max(end, cursor)
             url = URI.fromMatch(match)
             if end < start:
@@ -327,12 +328,12 @@ class URLParser(object):
                     if num_occurences > 0:
                         # run-on URL encountered, attempt to correct previous URL
                         urls.pop(-1)
-                        for inner_match in self.RE_URL_FINDER(u''.join(split_prev), overlapped=False):
+                        for inner_match in self._re_url_iter(u''.join(split_prev), overlapped=False):
                             new_url = URI.fromMatch(inner_match)
                             urls.append(new_url)
                             if placeholder_format:
                                 content_fragments.append(placeholder_format % new_url.entity_type)
-                    for i in xrange(num_occurences):
+                    for _ in xrange(num_occurences):
                         urls.append(url)
                         if placeholder_format:
                             content_fragments.append(placeholder_format % url.entity_type)
@@ -350,7 +351,7 @@ class URLParser(object):
         return content_fragments, urls
 
     def parse_url(self, text):
-        frags, urls = self.parse_urls(text)
+        _, urls = self.parse_urls(text)
         if urls:
             return urls[0]
         else:
@@ -358,3 +359,12 @@ class URLParser(object):
 
     def find_urls(self, text, overlapped=True):
         return self.parse_urls(text, overlapped=overlapped)[1]
+
+    def whiteout_urls(self, text, token_format=u" __%s__ "):
+        final_els = []
+        for element in roundrobin(*self.parse_urls(text)):
+            if isinstance(element, URI):
+                final_els.append(token_format % element.entity_type)
+            else:
+                final_els.append(element)
+        return u''.join(final_els)
