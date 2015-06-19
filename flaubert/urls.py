@@ -43,11 +43,11 @@ class URLRegexBuilder(object):
 
         # all valid TLDs
         valid_tlds = \
-            u'|'.join(read_text_resource(_resource('data/tlds-alpha-by-domain.txt')))
+            u'|'.join(read_text_resource(_resource('tlds-alpha-by-domain.txt')))
 
         # most common TLDs from the valid ones, plus unspecified XN-- ones
         specific_tlds = \
-            u'|'.join(read_text_resource(_resource('data/tlds-specific.txt'))) + \
+            u'|'.join(read_text_resource(_resource('tlds-specific.txt'))) + \
             u'|' + valid_punycode
 
         # http, https, and ftp schemes only (sorry, Gopher)

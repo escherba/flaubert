@@ -13,10 +13,10 @@ from nltk import pos_tag
 from joblib import Parallel, delayed
 from fastcache import clru_cache
 from pymaptools.io import write_json_line, PathArgumentParser, GzipFileType
-from nl2vec.tokenize import RegexFeatureTokenizer
-from nl2vec.urls import URLParser
-from nl2vec.conf import CONFIG
-from nl2vec.HTMLParser import HTMLParser, HTMLParseError
+from flaubert.tokenize import RegexFeatureTokenizer
+from flaubert.urls import URLParser
+from flaubert.conf import CONFIG
+from flaubert.HTMLParser import HTMLParser, HTMLParseError
 
 
 TREEBANK2WORDNET = {
