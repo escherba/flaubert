@@ -60,7 +60,7 @@ class RepeatReplacer(Replacer):
     >>> rep.replace(u"So many $100000 bills.......")
     u'So many $100000 bills...'
     """
-    def __init__(self, pattern=u'[^\\d]', max_repeats=3):
+    def __init__(self, pattern=u'[^\\d\\*]', max_repeats=3):
         if max_repeats < 1:
             raise ValueError("Invalid parameter value max_repeats={}"
                              .format(max_repeats))

@@ -128,3 +128,40 @@ class TestFeatureTokens(unittest.TestCase, SetComparisonMixin):
         text = u"I give it a 7 star rating"
         tokens = self.tokenize(text)
         self.assertSetContainsSubset([u'<7 / 10>'], tokens)
+
+    def test_rating_11(self):
+        text = u"Grade: * out of *****"
+        tokens = self.tokenize(text)
+        self.assertSetContainsSubset([u'<2 / 10>'], tokens)
+
+    def test_grade_1(self):
+        text = u"can save this boring, Grade B+ western."
+        tokens = self.tokenize(text)
+        self.assertSetContainsSubset([u'<GRADE_B+>'], tokens)
+
+    def test_grade_2(self):
+        text = u"can save this boring, Grade B western."
+        tokens = self.tokenize(text)
+        self.assertSetContainsSubset([u'<GRADE_B>'], tokens)
+
+    def test_grade_3(self):
+        text = u"My grade: F."
+        tokens = self.tokenize(text)
+        self.assertSetContainsSubset([u'<GRADE_F>'], tokens)
+
+    def test_grade_4(self):
+        text = u"mindless B-grade \"entertainment.\""
+        tokens = self.tokenize(text)
+        self.assertSetContainsSubset([u'<GRADE_B>'], tokens)
+
+    def test_decade_1(self):
+        text = u"Nice 1950s & 60s \"Americana\""
+        tokens = self.tokenize(text)
+        self.assertSetContainsSubset(
+            [u'nice', u'1950', u'60', u'americana'], tokens)
+
+    def test_decade_2(self):
+        text = u"Nice 1950s & 60's \"Americana\""
+        tokens = self.tokenize(text)
+        self.assertSetContainsSubset(
+            [u'nice', u'1950', u'60', u'americana'], tokens)
