@@ -82,7 +82,7 @@ DEPENDENCY_LINKS = list(set(itertools.chain(
 )))
 
 setup(
-    name="spam-svc",
+    name="flaubert",
     version='0.0.1',
     author="Eugene Scherba",
     author_email="escherba@gmail.com",
