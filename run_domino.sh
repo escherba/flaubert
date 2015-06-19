@@ -1,6 +1,6 @@
 #!/bin/bash
 
 make env
-make classify
+make train
 #make words
 #make sentences
