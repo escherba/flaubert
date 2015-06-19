@@ -1,4 +1,4 @@
-CONFIG = ./nl2vec/conf/default.yaml
+CONFIG = ./flaubert/conf/default.yaml
 NLTK_DIR = nltk_data
 NLTK_DIR_DONE = $(NLTK_DIR)/make.done
 DATA_DIR = data
@@ -31,13 +31,13 @@ pretrain: $(WORD2VEC)
 
 train: $(LABELED_TRAIN).tsv.zip $(LABELED_TRAIN).words.gz $(WORD2VEC)
 	unzip -p $(LABELED_TRAIN).tsv.zip > $(LABELED_TRAIN).tsv
-	$(PYTHON) -m nl2vec.train \
+	$(PYTHON) -m flaubert.train \
 		--classifier svm --word2vec $(WORD2VEC) \
 		--train $(LABELED_TRAIN).tsv --wordlist $(LABELED_TRAIN).words.gz
 	rm -f $(LABELED_TRAIN).tsv
 
 $(WORD2VEC): $(LABELED_TRAIN).sents.gz $(UNLABELED_TRAIN).sents.gz
-	python -m nl2vec.pretrain \
+	python -m flaubert.pretrain \
 		--sentences $^ \
 		--output $@
 
@@ -47,8 +47,8 @@ $(NLTK_DIR_DONE):
 
 %.sents.gz: %.tsv.zip | $(CONFIG) $(NLTK_DIR_DONE)
 	unzip -p $< > $*.tsv
-	$(PYTHON) -m nl2vec.preprocess --sentences --input $*.tsv --output $@
+	$(PYTHON) -m flaubert.preprocess --sentences --input $*.tsv --output $@
 
 %.words.gz: %.tsv.zip | $(CONFIG) $(NLTK_DIR_DONE)
 	unzip -p $< > $*.tsv
-	$(PYTHON) -m nl2vec.preprocess --input $*.tsv --output $@
+	$(PYTHON) -m flaubert.preprocess --input $*.tsv --output $@

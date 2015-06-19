@@ -9,7 +9,7 @@ handled by known parser.
 import pprint
 import unittest
 from test import test_support
-from nl2vec import HTMLParser
+from flaubert import HTMLParser
 
 
 class EventCollector(HTMLParser.HTMLParser):

@@ -1,2 +1,2 @@
-# nl2vec
-Sentiment analysis using word2vec.
+# Flaubert
+Sentiment analysis and word embedding.

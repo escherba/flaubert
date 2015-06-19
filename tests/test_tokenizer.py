@@ -1,8 +1,8 @@
 import unittest
 from tests import count_prefix
 from functools import partial
-from nl2vec.preprocess import TOKENIZER
-from nl2vec.tokenize import RegexFeatureTokenizer
+from flaubert.preprocess import TOKENIZER
+from flaubert.tokenize import RegexFeatureTokenizer
 from pymaptools.utils import SetComparisonMixin
 
 

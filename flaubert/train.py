@@ -9,7 +9,7 @@ from gensim.models import word2vec
 from sklearn.svm import LinearSVC
 from sklearn.ensemble import RandomForestClassifier
 from pymaptools.io import PathArgumentParser, GzipFileType
-from nl2vec.preprocess import read_tsv
+from flaubert.preprocess import read_tsv
 
 
 def makeFeatureVec(words, model, num_features):
