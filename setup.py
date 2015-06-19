@@ -83,7 +83,7 @@ DEPENDENCY_LINKS = list(set(itertools.chain(
 
 setup(
     name="spam-svc",
-    version='0.0.19.post0',
+    version='0.0.1',
     author="Eugene Scherba",
     author_email="escherba@gmail.com",
     description=("Tools for word2vec-based sentiment analysis"),
