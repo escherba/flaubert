@@ -78,7 +78,7 @@ CLASSIFIER_GRIDS = {
 }
 
 
-def train(classifier, y, X):
+def train_model(classifier, y, X):
     # TODO: use Hyperopt for hyperparameter search
     # Split the dataset
     X_train, X_test, y_train, y_test = train_test_split(
@@ -114,6 +114,7 @@ def train(classifier, y, X):
 
     print("Best score: %s=%f" % (SCORING, clf.best_score_))
     print()
+    return clf
 
 
 def parse_args(args=None):
@@ -137,9 +138,9 @@ def run(args):
     clean_train_reviews = []
     for line in args.wordlist:
         clean_train_reviews.append(json.loads(line))
-    train = read_tsv(args.train)
+    training_set = read_tsv(args.train)
     feature_vectors = getAvgFeatureVecs(clean_train_reviews, model, num_features)
-    train(args.classifier, train["sentiment"], feature_vectors)
+    train_model(args.classifier, training_set["sentiment"], feature_vectors)
 
 
 if __name__ == "__main__":
