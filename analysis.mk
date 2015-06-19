@@ -7,7 +7,7 @@ TEST = $(DATA_DIR)/testData
 LABELED_TRAIN = $(DATA_DIR)/labeledTrainData
 UNLABELED_TRAIN =  $(DATA_DIR)/unlabeledTrainData
 TRAIN = $(LABELED_TRAIN) $(UNLABELED_TRAIN)
-WORD2VEC = $(DATA_DIR)/300features_40minwords_10context.3
+WORD2VEC = $(DATA_DIR)/300features_40minwords_10context.2
 
 export NLTK_DATA=$(NLTK_DIR)
 
@@ -30,7 +30,7 @@ pretrain: $(WORD2VEC)
 	@echo "done"
 
 train: $(LABELED_TRAIN).tsv.zip $(LABELED_TRAIN).words.gz $(WORD2VEC)
-	unzip -p $< > $*.tsv
+	unzip -p $< > $(LABELED_TRAIN).tsv
 	$(PYTHON) -m nl2vec.classify --word2vec $(WORD2VEC) --train $(LABELED_TRAIN).tsv --wordlist $(LABELED_TRAIN).words.gz
 
 $(WORD2VEC): $(LABELED_TRAIN).sents.gz $(UNLABELED_TRAIN).sents.gz
