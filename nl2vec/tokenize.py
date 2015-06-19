@@ -53,9 +53,11 @@ DEFAULT_FEATURE_MAP = u"""
 |
 (?P<EMOTIC_HEART>(?<![0-9])\\<(\\/?)3+\\b)
 |
-(?P<STARRATING>([0-9]{1,2}|(?:\\*\\s?)+|%(number)s)(\\.[0-9]|[\\s-]*[1-9]\\s?\\/\\s?[1-9])?\\s*(?:stars?(?:\\s+rating)?)?\\s*(?:\\/|\\(?out\\s+of\\s)\\s*(4|5|10|four|five|ten)(?:\\s+stars)?)
+(?P<STARRATING>([0-9]{1,2}|(?:\\*\\s?)+|%(number)s)(\\.[0-9]|[\\s-]*[1-9]\\s?\\/\\s?[1-9])?\\s*(?:stars?(?:\\s+rating)?)?\\s*(?:\\/\\s*|\\(?(?:out\\s+)?of\\s+)(4|5|10|four|five|ten)(?:\\s+stars)?)
 |
 (?P<STARRATING_TEN>\\b(?:a|full)\\s10\\b)
+|
+(?P<STARRATING_X>\\b(?:a|my)\\s+([0-9](?:\\.[0-9])?)[\\s-]+(?:star\\s+)?rating\\b)
 |
 (?P<MPAARATING>pg[-\\s]?13|nc[-\\s]?17)
 |
@@ -188,7 +190,7 @@ class RegexFeatureTokenizer(object):
         yield match.group()
         yield self.groupname_format % group_name
 
-    def handle_starrating(self, match, text, tokens):
+    def handle_starrating(self, match, *args):
         """
         Convert miscellaneous ways to write a star rating into something like
         4/10
@@ -206,6 +208,10 @@ class RegexFeatureTokenizer(object):
             num_stars += modifier
         num_stars *= (10.0 / out_of)
         num_stars = int(round(num_stars))
+        yield u"<%d / %d>" % (num_stars, 10)
+
+    def handle_starrating_x(self, match, *args):
+        num_stars = int(round(float(match.group(match.lastindex + 1))))
         yield u"<%d / %d>" % (num_stars, 10)
 
     def handle_mpaarating(self, match, *args):
