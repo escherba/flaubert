@@ -1,4 +1,6 @@
 #!/bin/bash
 
 make env
-make sentences
+make train
+#make words
+#make sentences
