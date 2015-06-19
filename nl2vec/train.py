@@ -78,13 +78,13 @@ CLASSIFIER_GRIDS = {
 }
 
 
-def classify(classifier, y, X):
+def train(classifier, y, X):
     # TODO: use Hyperopt for hyperparameter search
     # Split the dataset
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=0)
 
-    print("# Tuning hyper-parameters for %s" % SCORING)
+    print("# Tuning hyper-parameters for %s (classifier: %s)" % (SCORING, classifier))
     print()
 
     args, kwargs = CLASSIFIER_GRIDS[classifier]
@@ -139,7 +139,7 @@ def run(args):
         clean_train_reviews.append(json.loads(line))
     train = read_tsv(args.train)
     feature_vectors = getAvgFeatureVecs(clean_train_reviews, model, num_features)
-    classify(args.classifier, train["sentiment"], feature_vectors)
+    train(args.classifier, train["sentiment"], feature_vectors)
 
 
 if __name__ == "__main__":
