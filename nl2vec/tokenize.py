@@ -33,6 +33,8 @@ def count_stars(num_stars):
 DEFAULT_FEATURE_MAP = u"""
 (?P<SPECIAL>\\b__([A-Za-z]+)__\\b)
 |
+(?P<TIMEOFDAY>\\b[0-2]?[0-9]:[0-6][0-9](?:\\s*[AaPp][Mm])?\\b)
+|
 (?P<EMOTIC_EAST_LO>\\(?[\\+\\^ˇ\\*\\->~][_\\.][\\+\\^ˇ\\*\\-<~]\\)?)
 |
 (?P<EMOTIC_EAST_HI>\\(?[\\^ˇ\\*][\\-~oO][\\^ˇ\\*]\\)?)
@@ -144,6 +146,7 @@ class RegexFeatureTokenizer(object):
 
     handle_asciiarrow_left = _group_tag
     handle_asciiarrow_right = _group_tag
+    handle_timeofday = _group_tag
 
     def handle_special(self, match, *args):
         tag_name = match.group(match.lastindex + 1).upper()
