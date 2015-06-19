@@ -62,22 +62,15 @@ def getAvgFeatureVecs(reviews, model, num_features):
     return reviewFeatureVecs
 
 
-def classify(train, trainDataVecs):
-    """
-    :param train: Pandas data frame with training data
-    :param trainDataVecs: a matrix of <samplex x features> dim.
-    """
-    X = trainDataVecs
-    y = train["sentiment"]
-
+def classify(y, X):
     # Split the dataset in two parts
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=0)
 
     # Set the parameters by cross-validation
     linearsvc_param_grid = [
-        {'dual': [False], 'penalty':['l1', 'l2'], 'C': [0.01, 0.1, 1, 10, 100, 1000]},
-        {'dual': [True], 'penalty':['l2'], 'C': [0.01, 0.1, 1, 10, 100, 1000]}
+        {'dual': [False], 'penalty':['l1', 'l2'], 'C': [0.1, 1, 10, 100]},
+        #{'dual': [True], 'penalty':['l2'], 'C': [0.1, 1, 10, 100]}
     ]
 
     # forest_param_grid = {
@@ -146,7 +139,7 @@ def run(args):
         clean_train_reviews.append(json.loads(line))
     train = read_tsv(args.train)
     trainDataVecs = getAvgFeatureVecs(clean_train_reviews, model, num_features)
-    classify(train, trainDataVecs)
+    classify(train["sentiment"], trainDataVecs)
 
 
 if __name__ == "__main__":
