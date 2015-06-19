@@ -30,8 +30,11 @@ pretrain: $(WORD2VEC)
 	@echo "done"
 
 train: $(LABELED_TRAIN).tsv.zip $(LABELED_TRAIN).words.gz $(WORD2VEC)
-	unzip -p $< > $(LABELED_TRAIN).tsv
-	$(PYTHON) -m nl2vec.classify --word2vec $(WORD2VEC) --train $(LABELED_TRAIN).tsv --wordlist $(LABELED_TRAIN).words.gz
+	unzip -p $(LABELED_TRAIN).tsv.zip > $(LABELED_TRAIN).tsv
+	$(PYTHON) -m nl2vec.classify \
+		--classifier svm --word2vec $(WORD2VEC) \
+		--train $(LABELED_TRAIN).tsv --wordlist $(LABELED_TRAIN).words.gz
+	rm -f $(LABELED_TRAIN).tsv
 
 $(WORD2VEC): $(LABELED_TRAIN).sents.gz $(UNLABELED_TRAIN).sents.gz
 	python -m nl2vec.pretrain \
