@@ -1,2 +1,2 @@
 # nl2vec
-NLP and word2vec experiment on Kaggle movie review data
+Sentiment analysis using word2vec.
