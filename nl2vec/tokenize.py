@@ -61,7 +61,9 @@ DEFAULT_FEATURE_MAP = u"""
 |
 (?P<MPAARATING>pg[-\\s]?13|nc[-\\s]?17)
 |
-(?P<GRADE>\\bgrade\\s*:?\\s*[a-f]\\b\\+?)
+(?P<GRADE_POST>\\bgrade\\s*[:-]?\\s*([a-f](?:\\+|\\b)))
+|
+(?P<GRADE_PRE>\\b([a-f]\\+?)\\s*-?\\s*grade\\b)
 |
 (?P<ASCIIARROW_RIGHT>([\\-=]?\\>{2,}|[\\-=]+\\>))        # -->, ==>, >>, >>>
 |
@@ -216,11 +218,17 @@ class RegexFeatureTokenizer(object):
         num_stars = int(round(float(match.group(match.lastindex + 1))))
         yield u"<%d / %d>" % (num_stars, 10)
 
-    def entity_handler(self, match, *args):
+    def simple_entity_handler(self, match, *args):
         yield self.groupname_format % RE_STRIP_NOISE(match.group()).upper()
 
-    handle_mpaarating = entity_handler
-    handle_grade = entity_handler
+    handle_mpaarating = simple_entity_handler
+
+    def grade_handler(self, match, *args):
+        grade = match.group(match.lastindex + 1).upper()
+        yield self.groupname_format % u'_'.join([u"GRADE", grade])
+
+    handle_grade_pre = grade_handler
+    handle_grade_post = grade_handler
 
     def handle_ellipsis(self, match, *args):
         if match.group() == u"\u2026":

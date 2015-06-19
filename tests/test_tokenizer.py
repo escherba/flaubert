@@ -137,14 +137,19 @@ class TestFeatureTokens(unittest.TestCase, SetComparisonMixin):
     def test_grade_1(self):
         text = u"can save this boring, Grade B+ western."
         tokens = self.tokenize(text)
-        self.assertSetContainsSubset([u'<GRADEB+>'], tokens)
+        self.assertSetContainsSubset([u'<GRADE_B+>'], tokens)
 
     def test_grade_2(self):
         text = u"can save this boring, Grade B western."
         tokens = self.tokenize(text)
-        self.assertSetContainsSubset([u'<GRADEB>'], tokens)
+        self.assertSetContainsSubset([u'<GRADE_B>'], tokens)
 
     def test_grade_3(self):
         text = u"My grade: F."
         tokens = self.tokenize(text)
-        self.assertSetContainsSubset([u'<GRADEF>'], tokens)
+        self.assertSetContainsSubset([u'<GRADE_F>'], tokens)
+
+    def test_grade_4(self):
+        text = u"mindless B-grade \"entertainment.\""
+        tokens = self.tokenize(text)
+        self.assertSetContainsSubset([u'<GRADE_B>'], tokens)
