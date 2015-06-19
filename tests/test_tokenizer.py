@@ -128,3 +128,8 @@ class TestFeatureTokens(unittest.TestCase, SetComparisonMixin):
         text = u"I give it a 7 star rating"
         tokens = self.tokenize(text)
         self.assertSetContainsSubset([u'<7 / 10>'], tokens)
+
+    def test_rating_11(self):
+        text = u"Grade: * out of *****"
+        tokens = self.tokenize(text)
+        self.assertSetContainsSubset([u'<2 / 10>'], tokens)

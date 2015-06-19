@@ -53,7 +53,7 @@ DEFAULT_FEATURE_MAP = u"""
 |
 (?P<EMOTIC_HEART>(?<![0-9])\\<(\\/?)3+\\b)
 |
-(?P<STARRATING>([0-9]{1,2}|(?:\\*\\s?)+|%(number)s)(\\.[0-9]|[\\s-]*[1-9]\\s?\\/\\s?[1-9])?\\s*(?:stars?(?:\\s+rating)?)?\\s*(?:\\/\\s*|\\(?(?:out\\s+)?of\\s+)(4|5|10|four|five|ten)(?:\\s+stars)?)
+(?P<STARRATING>([0-9]{1,2}|(?:\\*\\s?)+|%(number)s)(\\.[0-9]|[\\s-]*[1-9]\\s?\\/\\s?[1-9])?\\s*(?:stars?(?:\\s+rating)?)?\\s*(?:\\/\\s*|\\(?(?:out\\s+)?of\\s+)(4|5|10|four|five|ten|\\*+)(?:\\s+stars)?)
 |
 (?P<STARRATING_TEN>\\b(?:a|full)\\s10\\b)
 |
