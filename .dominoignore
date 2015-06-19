@@ -14,13 +14,17 @@ dist/
 *.egg-info
 __pycache__
 
-# data extensions
-*.clusters
-
 setuptools*.zip
 
-# intermediate files
-all.json.gz
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*,cover
 
 .git/
 __pycache__/
