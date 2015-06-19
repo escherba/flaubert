@@ -25,8 +25,8 @@ def count_stars(num_stars):
     dec_num_stars = NUM2DEC.get(num_stars)
     if dec_num_stars is None:
         dec_num_stars = len(RE_FIND_STARS(num_stars))
-    if dec_num_stars == 0:
-        dec_num_stars = int(num_stars)
+        if dec_num_stars == 0:
+            dec_num_stars = int(num_stars)
     return float(dec_num_stars)
 
 
