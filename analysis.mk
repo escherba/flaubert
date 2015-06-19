@@ -32,7 +32,7 @@ pretrain: $(WORD2VEC)
 train: $(LABELED_TRAIN).tsv.zip $(LABELED_TRAIN).words.gz $(WORD2VEC)
 	unzip -p $(LABELED_TRAIN).tsv.zip > $(LABELED_TRAIN).tsv
 	$(PYTHON) -m flaubert.train \
-		--classifier random_forest --word2vec $(WORD2VEC) \
+		--classifier svm --word2vec $(WORD2VEC) \
 		--train $(LABELED_TRAIN).tsv --wordlist $(LABELED_TRAIN).words.gz
 	rm -f $(LABELED_TRAIN).tsv
 
