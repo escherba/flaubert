@@ -13,7 +13,7 @@ from nltk import pos_tag
 from joblib import Parallel, delayed
 from fastcache import clru_cache
 from pymaptools.io import write_json_line, PathArgumentParser, GzipFileType
-from flaubert.tokenize import RegexFeatureTokenizer
+from flaubert.tokenize import RegexpFeatureTokenizer
 from flaubert.urls import URLParser
 from flaubert.conf import CONFIG
 from flaubert.HTMLParser import HTMLParser, HTMLParseError
@@ -198,7 +198,7 @@ class SimpleSentenceTokenizer(object):
                  nltk_sentence_tokenizer='tokenizers/punkt/english.pickle',
                  max_char_repeats=3, lru_cache_size=50000, replace_map=None):
         self._unicode_normalize = partial(unicodedata.normalize, unicode_form)
-        self._tokenize = RegexFeatureTokenizer().tokenize
+        self._tokenize = RegexpFeatureTokenizer().tokenize
         self._stopwords = frozenset(stopwords.words(nltk_stop_words))
         self._url_parser = url_parser
         self._sentence_tokenize = nltk.data.load(nltk_sentence_tokenizer).tokenize

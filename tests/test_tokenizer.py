@@ -2,7 +2,7 @@ import unittest
 from tests import count_prefix
 from functools import partial
 from flaubert.preprocess import TOKENIZER
-from flaubert.tokenize import RegexFeatureTokenizer
+from flaubert.tokenize import RegexpFeatureTokenizer
 from pymaptools.utils import SetComparisonMixin
 
 
@@ -12,7 +12,7 @@ class TestFeatureTokens(unittest.TestCase, SetComparisonMixin):
 
     def setUp(self):
         self.tokenize = partial(TOKENIZER.tokenize, remove_stopwords=False)
-        self.base_tokenizer = RegexFeatureTokenizer(debug=True)
+        self.base_tokenizer = RegexpFeatureTokenizer(debug=True)
 
     def test_western_emoticons_happy(self):
         """With custom features removed, this text should be idempotent on tokenization

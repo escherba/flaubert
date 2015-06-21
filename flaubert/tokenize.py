@@ -90,10 +90,8 @@ DEFAULT_FEATURE_MAP = u"""
     number=u'|'.join(NUM2DEC.keys())
 )
 
-RE_DEFAULT_FEATURES = re.compile(DEFAULT_FEATURE_MAP, re.VERBOSE | re.UNICODE)
 
-
-class RegexFeatureTokenizer(object):
+class RegexpFeatureTokenizer(object):
     """A regex-based feature extractor and tokenizer
 
     This feature extractor is meant to be run after basic preprocessing
@@ -132,13 +130,14 @@ class RegexFeatureTokenizer(object):
     dispatch_prefix = 'handle_'
 
     def __init__(self,
+                 pattern=DEFAULT_FEATURE_MAP,
                  groupname_format=u"<%s>",
-                 regex=RE_DEFAULT_FEATURES,
                  word_buffer_len=5,
+                 flags=re.UNICODE | re.DOTALL | re.VERBOSE,
                  debug=False):
 
         # attributes equal to parameter names
-        self.regex = regex
+        self.regex = re.compile(pattern, flags)
         self.groupname_format = groupname_format
         self.word_buffer_len = word_buffer_len
 
