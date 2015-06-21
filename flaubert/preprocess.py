@@ -94,6 +94,14 @@ class Translator(Replacer):
     def __init__(self, translate_map):
         self._translate_map = {ord(k): ord(v) for k, v in translate_map.iteritems()}
 
+    @classmethod
+    def from_inverse_map(cls, inverse_map):
+        replace_map = {}
+        for key, vals in (inverse_map or {}).iteritems():
+            for val in vals:
+                replace_map[val] = key
+        return cls(replace_map)
+
     def replace(self, text):
         """Replace characters
         """
@@ -158,9 +166,9 @@ class MLStripper(HTMLParser):
 class HTMLCleaner(object):
 
     _remove_full_comment = partial(
-        (re.compile(ur"(?s)<!--(.*?)-->[\n]?", re.UNICODE)).subn, ur'\1')
+        (re.compile(ur"(?s)<!--(.*?)-->[\n]?", re.UNICODE)).sub, ur'\1')
     _remove_partial_comment = partial(
-        (re.compile(ur"<!--", re.UNICODE)).subn, u"")
+        (re.compile(ur"<!--", re.UNICODE)).sub, u"")
 
     def __init__(self, strip_html=True, strip_html_comments=True):
         self._strip_html = strip_html
@@ -170,8 +178,8 @@ class HTMLCleaner(object):
         """Remove HTML markup from the given string
         """
         if self._strip_html_comments:
-            html, num_full_comments = self._remove_full_comment(html)
-            html, num_partial_comments = self._remove_partial_comment(html)
+            html = self._remove_full_comment(html)
+            html = self._remove_partial_comment(html)
         if html and self._strip_html:
             stripper = MLStripper()
             try:
@@ -200,7 +208,7 @@ class SimpleSentenceTokenizer(object):
         self._replace_char_repeats = \
             RepeatReplacer(max_repeats=max_char_repeats).replace \
             if max_char_repeats > 0 else self._identity
-        self._replace_chars = self.create_char_replacer(replace_map).replace
+        self._replace_chars = Translator.from_inverse_map(replace_map).replace
         self.strip_html = HTMLCleaner().clean
 
         # tokenize a dummy string b/c lemmatizer and/or other tools can take
@@ -210,14 +218,6 @@ class SimpleSentenceTokenizer(object):
     @staticmethod
     def _identity(arg):
         return arg
-
-    @staticmethod
-    def create_char_replacer(replace_map):
-        inverse_replace_map = {}
-        for key, vals in (replace_map or {}).iteritems():
-            for val in vals:
-                inverse_replace_map[val] = key
-        return Translator(inverse_replace_map)
 
     def _preprocess_text(self, text):
         # 1. Remove HTML
