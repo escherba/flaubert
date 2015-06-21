@@ -2,14 +2,15 @@ from __future__ import print_function
 
 import json
 import numpy as np
+from gensim.models import word2vec
 from sklearn.cross_validation import train_test_split
 from sklearn.grid_search import GridSearchCV
 from sklearn.metrics import classification_report
-from gensim.models import word2vec
 from sklearn.svm import LinearSVC
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier, \
     ExtraTreesClassifier
+from sklearn.linear_model import LogisticRegression
 from pymaptools.io import PathArgumentParser, GzipFileType
 from flaubert.preprocess import read_tsv
 
@@ -54,10 +55,16 @@ def getAvgFeatureVecs(reviews, model, num_features):
     return reviewFeatureVecs
 
 
+SCORING = 'f1'
+
 PARAM_GRIDS = {
+    'LogisticRegression': [
+        {'dual': [False], 'penalty':['l1', 'l2'], 'C': [0.01, 0.033, 0.1, 0.33, 1.0]},
+        #{'dual': [True], 'penalty':['l2'], 'C': [0.01, 0.033, 0.1, 0.33, 1.0]}
+    ],
     'LinearSVC': [
-        {'dual': [False], 'penalty':['l1', 'l2'], 'C': [0.1, 1, 10, 100]},
-        # {'dual': [True], 'penalty':['l2'], 'C': [0.1, 1, 10, 100]}
+        {'dual': [False], 'penalty':['l1', 'l2'], 'C': [0.33, 1.0, 3.3, 10.0]},
+        #{'dual': [True], 'penalty':['l2'], 'C': [0.1, 1, 10, 100]}
     ],
     'RandomForestClassifier': {
         "n_estimators": [30, 40],
@@ -70,13 +77,13 @@ PARAM_GRIDS = {
     }
 }
 
-SCORING = 'f1'
-
 CLASSIFIER_GRIDS = {
+    'lr': [[LogisticRegression(), PARAM_GRIDS['LogisticRegression']],
+           dict(cv=5, scoring=SCORING, n_jobs=-1)],
     'svm': [[LinearSVC(), PARAM_GRIDS['LinearSVC']],
-            dict(cv=5, scoring=SCORING, n_jobs=6)],
+            dict(cv=5, scoring=SCORING, n_jobs=-1)],
     'random_forest': [[RandomForestClassifier(), PARAM_GRIDS['RandomForestClassifier']],
-                      dict(cv=5, scoring=SCORING, n_jobs=6)],
+                      dict(cv=5, scoring=SCORING, n_jobs=-1)],
 }
 
 
