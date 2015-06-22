@@ -5,6 +5,7 @@ import regex as re
 import sys
 import abc
 import logging
+from bs4 import BeautifulSoup
 from itertools import islice
 from functools import partial
 from nltk.corpus import stopwords
@@ -196,7 +197,8 @@ class SimpleSentenceTokenizer(object):
     def __init__(self, lemmatizer=None, stemmer=None, url_parser=None,
                  unicode_form='NFKC', nltk_stop_words="english",
                  nltk_sentence_tokenizer='tokenizers/punkt/english.pickle',
-                 max_char_repeats=3, lru_cache_size=50000, replace_map=None):
+                 max_char_repeats=3, lru_cache_size=50000, replace_map=None,
+                 html_renderer='default'):
         self._unicode_normalize = partial(unicodedata.normalize, unicode_form)
         self._tokenize = RegexpFeatureTokenizer().tokenize
         self._stopwords = frozenset(stopwords.words(nltk_stop_words))
@@ -209,7 +211,14 @@ class SimpleSentenceTokenizer(object):
             RepeatReplacer(max_repeats=max_char_repeats).replace \
             if max_char_repeats > 0 else self._identity
         self._replace_chars = Translator.from_inverse_map(replace_map).replace
-        self.strip_html = HTMLCleaner().clean
+        if html_renderer is None:
+            self.strip_html = lambda x: x
+        elif html_renderer == u'default':
+            self.strip_html = HTMLCleaner().clean
+        elif html_renderer == u'beautifulsoup':
+            self.strip_html = self._strip_html_bs
+        else:
+            raise ValueError('Invalid parameter value given for `html_renderer`')
 
         # tokenize a dummy string b/c lemmatizer and/or other tools can take
         # a while to initialize screwing up our attempts to measure performance
@@ -219,7 +228,7 @@ class SimpleSentenceTokenizer(object):
     def _identity(arg):
         return arg
 
-    def _preprocess_text(self, text):
+    def _preprocess_text(self, text, lowercase=True):
         # 1. Remove HTML
         text = self.strip_html(text)
         # 2. Normalize Unicode
@@ -229,15 +238,43 @@ class SimpleSentenceTokenizer(object):
         # 4. whiteout URLs
         text = self._url_parser.whiteout_urls(text)
         # 5. Lowercase
-        text = text.lower()
+        if lowercase:
+            text = text.lower()
         # 6. Reduce repeated characters to specified number (usually 3)
         text = self._replace_char_repeats(text)
         return text
 
-    def word_tokenize(self, text, preprocess=True, remove_stopwords=True):
+    #def _preprocess_text(self, text, lowercase=True):
+    #    # 1. Remove HTML
+    #    text = self.strip_html(text)
+    #    # 3. Lowercase
+    #    if lowercase:
+    #        text = text.lower()
+    #    return text
+
+    def _strip_html_bs(self, text):
+        """
+        Use BeautifulSoup to strip off HTML but in such a way that <BR> and
+        <P> tags get rendered as new lines
+        """
+        soup = BeautifulSoup(text)
+        fragments = []
+        for element in soup.recursiveChildGenerator():
+            if isinstance(element, basestring):
+                fragments.append(element.strip())
+            elif element.name == 'br':
+                fragments.append(u"\n")
+            elif element.name == 'p':
+                fragments.append(u"\n")
+        result = u"".join(fragments).strip()
+        return result
+
+    def word_tokenize(self, text, lowercase=True, preprocess=True, remove_stopwords=False):
         # 1. Misc. preprocessing
         if preprocess:
-            text = self._preprocess_text(text)
+            text = self._preprocess_text(text, lowercase=lowercase)
+        elif lowercase:
+            text = text.lower()
 
         # 2. Tokenize
         words = self._tokenize(text)
@@ -267,14 +304,14 @@ class SimpleSentenceTokenizer(object):
     def sentence_tokenize(self, text, preprocess=True,
                           remove_stopwords=False):
         if preprocess:
-            text = self._preprocess_text(text)
+            text = self._preprocess_text(text, lowercase=False)
 
         sentences = []
         for raw_sentence in self._sentence_tokenize(text):
             if not raw_sentence:
                 continue
             words = self.word_tokenize(
-                raw_sentence, preprocess=False,
+                raw_sentence, preprocess=False, lowercase=True,
                 remove_stopwords=remove_stopwords)
             if not words:
                 continue
