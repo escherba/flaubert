@@ -60,11 +60,11 @@ SCORING = 'f1'
 PARAM_GRIDS = {
     'LogisticRegression': [
         {'dual': [False], 'penalty':['l1', 'l2'], 'C': [0.01, 0.033, 0.1, 0.33, 1.0]},
-        #{'dual': [True], 'penalty':['l2'], 'C': [0.01, 0.033, 0.1, 0.33, 1.0]}
+        # {'dual': [True], 'penalty':['l2'], 'C': [0.01, 0.033, 0.1, 0.33, 1.0]}
     ],
     'LinearSVC': [
         {'dual': [False], 'penalty':['l1', 'l2'], 'C': [0.33, 1.0, 3.3, 10.0]},
-        #{'dual': [True], 'penalty':['l2'], 'C': [0.1, 1, 10, 100]}
+        # {'dual': [True], 'penalty':['l2'], 'C': [0.1, 1, 10, 100]}
     ],
     'RandomForestClassifier': {
         "n_estimators": [30, 40],
@@ -90,6 +90,17 @@ CLASSIFIER_GRIDS = {
 def train_model(args, y, X):
     # TODO: use Hyperopt for hyperparameter search
     # Split the dataset
+
+    # X and y arrays must have matching numbers of rows
+    assert X.shape[0] == y.shape[0]
+
+    # drop rows that contain any NaNs (missing values)
+    X_nans = np.isnan(X).any(axis=1)
+    y_nans = np.asarray(np.isnan(y))
+    nans = X_nans | y_nans
+    y = y[~nans]
+    X = X[~nans]
+
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=0)
 
