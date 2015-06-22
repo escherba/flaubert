@@ -74,6 +74,10 @@ PARAM_GRIDS = {
         "min_samples_leaf": [100],
         "bootstrap": [False],
         "criterion": ["gini", "entropy"]
+    },
+    'AdaBoost': {
+        'n_estimators': [30, 60],
+        'algorithm': ['SAMME.R']
     }
 }
 
@@ -84,6 +88,8 @@ CLASSIFIER_GRIDS = {
             dict(cv=5, scoring=SCORING, n_jobs=-1)],
     'random_forest': [[RandomForestClassifier(), PARAM_GRIDS['RandomForestClassifier']],
                       dict(cv=5, scoring=SCORING, n_jobs=-1)],
+    'adaboost': [[AdaBoostClassifier(DecisionTreeClassifier(max_depth=2)), PARAM_GRIDS['AdaBoost']],
+                 dict(cv=5, scoring=SCORING, n_jobs=-1)]
 }
 
 
@@ -133,26 +139,6 @@ def train_model(args, y, X):
     print()
 
     print("Best score: %s=%f" % (SCORING, clf.best_score_))
-    print()
-    return clf
-
-
-def train_simple(args, y, X):
-    # Split the dataset
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=0)
-
-    clf = AdaBoostClassifier(DecisionTreeClassifier(max_depth=2),
-                             algorithm="SAMME.R", n_estimators=60)
-    clf.fit(X_train, y_train)
-
-    print("Detailed classification report:")
-    print()
-    print("The model is trained on the full development set.")
-    print("The scores are computed on the full evaluation set.")
-    print()
-    y_true, y_pred = y_test, clf.predict(X_test)
-    print(classification_report(y_true, y_pred))
     print()
     return clf
 
