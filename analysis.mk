@@ -7,7 +7,7 @@ TEST = $(DATA_DIR)/testData
 LABELED_TRAIN = $(DATA_DIR)/labeledTrainData
 UNLABELED_TRAIN =  $(DATA_DIR)/unlabeledTrainData
 TRAIN = $(LABELED_TRAIN) $(UNLABELED_TRAIN)
-WORD2VEC = $(DATA_DIR)/300features_40minwords_10context
+WORD2VEC = $(DATA_DIR)/300features_40minwords_10context.y
 
 export NLTK_DATA=$(NLTK_DIR)
 
@@ -15,7 +15,7 @@ SENTS := $(ALL_DATA:.tsv.zip=.sents.gz)
 WORDS := $(ALL_DATA:.tsv.zip=.words.gz)
 
 clean_data:
-	rm -rf $(SENTS) $(WORDS)
+	rm -rf $(SENTS) $(WORDS) $(WORD2VEC)
 
 sentences: $(SENTS) | env
 	@echo "done"

@@ -2,14 +2,15 @@ from __future__ import print_function
 
 import json
 import numpy as np
+from gensim.models import word2vec
 from sklearn.cross_validation import train_test_split
 from sklearn.grid_search import GridSearchCV
 from sklearn.metrics import classification_report
-from gensim.models import word2vec
 from sklearn.svm import LinearSVC
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier, \
     ExtraTreesClassifier
+from sklearn.linear_model import LogisticRegression
 from pymaptools.io import PathArgumentParser, GzipFileType
 from flaubert.preprocess import read_tsv
 
@@ -54,9 +55,15 @@ def getAvgFeatureVecs(reviews, model, num_features):
     return reviewFeatureVecs
 
 
+SCORING = 'f1'
+
 PARAM_GRIDS = {
+    'LogisticRegression': [
+        {'dual': [False], 'penalty':['l1', 'l2'], 'C': [0.01, 0.033, 0.1, 0.33, 1.0]},
+        # {'dual': [True], 'penalty':['l2'], 'C': [0.01, 0.033, 0.1, 0.33, 1.0]}
+    ],
     'LinearSVC': [
-        {'dual': [False], 'penalty':['l1', 'l2'], 'C': [0.1, 1, 10, 100]},
+        {'dual': [False], 'penalty':['l1', 'l2'], 'C': [0.33, 1.0, 3.3, 10.0]},
         # {'dual': [True], 'penalty':['l2'], 'C': [0.1, 1, 10, 100]}
     ],
     'RandomForestClassifier': {
@@ -67,22 +74,39 @@ PARAM_GRIDS = {
         "min_samples_leaf": [100],
         "bootstrap": [False],
         "criterion": ["gini", "entropy"]
+    },
+    'AdaBoost': {
+        'n_estimators': [30, 60],
+        'algorithm': ['SAMME.R']
     }
 }
 
-SCORING = 'f1'
-
 CLASSIFIER_GRIDS = {
+    'lr': [[LogisticRegression(), PARAM_GRIDS['LogisticRegression']],
+           dict(cv=5, scoring=SCORING, n_jobs=-1)],
     'svm': [[LinearSVC(), PARAM_GRIDS['LinearSVC']],
-            dict(cv=5, scoring=SCORING, n_jobs=6)],
+            dict(cv=5, scoring=SCORING, n_jobs=-1)],
     'random_forest': [[RandomForestClassifier(), PARAM_GRIDS['RandomForestClassifier']],
-                      dict(cv=5, scoring=SCORING, n_jobs=6)],
+                      dict(cv=5, scoring=SCORING, n_jobs=-1)],
+    'adaboost': [[AdaBoostClassifier(DecisionTreeClassifier(max_depth=2)), PARAM_GRIDS['AdaBoost']],
+                 dict(cv=5, scoring=SCORING, n_jobs=-1)]
 }
 
 
 def train_model(args, y, X):
     # TODO: use Hyperopt for hyperparameter search
     # Split the dataset
+
+    # X and y arrays must have matching numbers of rows
+    assert X.shape[0] == y.shape[0]
+
+    # drop rows that contain any NaNs (missing values)
+    X_nans = np.isnan(X).any(axis=1)
+    y_nans = np.asarray(np.isnan(y))
+    nans = X_nans | y_nans
+    y = y[~nans]
+    X = X[~nans]
+
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=0)
 
@@ -115,26 +139,6 @@ def train_model(args, y, X):
     print()
 
     print("Best score: %s=%f" % (SCORING, clf.best_score_))
-    print()
-    return clf
-
-
-def train_simple(args, y, X):
-    # Split the dataset
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=0)
-
-    clf = AdaBoostClassifier(DecisionTreeClassifier(max_depth=2),
-                             algorithm="SAMME.R", n_estimators=60)
-    clf.fit(X_train, y_train)
-
-    print("Detailed classification report:")
-    print()
-    print("The model is trained on the full development set.")
-    print("The scores are computed on the full evaluation set.")
-    print()
-    y_true, y_pred = y_test, clf.predict(X_test)
-    print(classification_report(y_true, y_pred))
     print()
     return clf
 

@@ -60,3 +60,46 @@ Best parameters set found on development set:
 
 Best score: f1=0.872732
 
+BoW
+===
+
+
+SVM
+---
+
+             precision    recall  f1-score   support
+
+          0       0.89      0.87      0.88      2548
+          1       0.87      0.88      0.88      2452
+
+avg / total       0.88      0.88      0.88      5000
+
+
+Best parameters set found on development set:
+
+{'penalty': 'l1', 'C': 0.1, 'dual': False}
+
+Best score: f1=0.880630
+
+
+Logistic Regression
+-------------------
+
+Detailed classification report:
+
+The model is trained on the full development set.
+The scores are computed on the full evaluation set.
+
+             precision    recall  f1-score   support
+
+          0       0.90      0.88      0.89      2548
+          1       0.88      0.89      0.89      2452
+
+avg / total       0.89      0.89      0.89      5000
+
+
+Best parameters set found on development set:
+
+{'penalty': 'l2', 'C': 0.1, 'dual': False}
+
+Best score: f1=0.884835
