@@ -70,27 +70,31 @@ PARAM_GRIDS = {
         # {'dual': [True], 'penalty':['l2'], 'C': [0.1, 1, 10, 100]}
     ],
     'RandomForestClassifier': {
-        "n_estimators": [60],
-        "max_depth": [8, 16, 32],
-        "max_features": [50, 100],
-        "min_samples_split": [2, 3],
-        "min_samples_leaf": [1, 4, 16],
+        "n_estimators": [90],
+        "max_depth": [32, 64],
+        "max_features": [50, 75, 100],
+        "min_samples_split": [2],
+        "min_samples_leaf": [2, 3],
         "bootstrap": [False],
         "criterion": ["entropy"]
     },
     'AdaBoost': {
-        'n_estimators': [30, 60],
+        'n_estimators': [60],
+        'learning_rate': [0.8],
         'algorithm': ['SAMME.R']
     }
 }
 
 GRIDSEARHCV_KWARGS = dict(cv=5, scoring=SCORING, n_jobs=-1, verbose=10)
+DECISION_TREE_PARAMS = dict(
+    criterion="entropy", max_depth=2, min_samples_split=2, min_samples_leaf=2
+)
 
 CLASSIFIER_GRIDS = {
     'lr': [[LogisticRegression(), PARAM_GRIDS['LogisticRegression']], GRIDSEARHCV_KWARGS],
     'svm': [[LinearSVC(), PARAM_GRIDS['LinearSVC']], GRIDSEARHCV_KWARGS],
     'random_forest': [[RandomForestClassifier(), PARAM_GRIDS['RandomForestClassifier']], GRIDSEARHCV_KWARGS],
-    'adaboost': [[AdaBoostClassifier(DecisionTreeClassifier(max_depth=2)), PARAM_GRIDS['AdaBoost']], GRIDSEARHCV_KWARGS]
+    'adaboost': [[AdaBoostClassifier(DecisionTreeClassifier(**DECISION_TREE_PARAMS)), PARAM_GRIDS['AdaBoost']], GRIDSEARHCV_KWARGS]
 }
 
 
