@@ -24,7 +24,7 @@ htmlcov/
 .cache
 nosetests.xml
 coverage.xml
-*,cover
+cover/
 
 .git/
 __pycache__/
