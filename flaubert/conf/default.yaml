@@ -19,7 +19,7 @@ tokenizer:
         ' ': "\xa0"
     }
 
-lemmatizer: null  # null or "wordnet"
+lemmatizer: "wordnet"  # null or "wordnet"
 stemmer: null   # null or "porter"
 
 word2vec:
