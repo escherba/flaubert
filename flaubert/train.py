@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import numpy as np
+import logging
 from gensim.models import word2vec
 from sklearn.cross_validation import train_test_split
 from sklearn.grid_search import GridSearchCV
@@ -12,6 +13,9 @@ from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier, \
 from sklearn.linear_model import LogisticRegression
 from pymaptools.io import PathArgumentParser, GzipFileType, read_json_lines
 from flaubert.preprocess import read_tsv
+
+
+logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
 
 def makeFeatureVec(words, model, num_features):
@@ -66,13 +70,13 @@ PARAM_GRIDS = {
         # {'dual': [True], 'penalty':['l2'], 'C': [0.1, 1, 10, 100]}
     ],
     'RandomForestClassifier': {
-        "n_estimators": [30, 60, 120],
-        "max_depth": [8, 16],
-        "max_features": [100, None],
-        "min_samples_split": [2, 20],
-        "min_samples_leaf": [1, 10],
+        "n_estimators": [60, 90],
+        "max_depth": [16, 32],
+        "max_features": [200],
+        "min_samples_split": [2, 4],
+        "min_samples_leaf": [1, 3],
         "bootstrap": [False],
-        "criterion": ["gini", "entropy"]
+        "criterion": ["entropy"]
     },
     'AdaBoost': {
         'n_estimators': [30, 60],
