@@ -84,15 +84,13 @@ PARAM_GRIDS = {
     }
 }
 
+GRIDSEARHCV_KWARGS = dict(cv=5, scoring=SCORING, n_jobs=-1, verbose=10)
+
 CLASSIFIER_GRIDS = {
-    'lr': [[LogisticRegression(), PARAM_GRIDS['LogisticRegression']],
-           dict(cv=5, scoring=SCORING, n_jobs=-1)],
-    'svm': [[LinearSVC(), PARAM_GRIDS['LinearSVC']],
-            dict(cv=5, scoring=SCORING, n_jobs=-1)],
-    'random_forest': [[RandomForestClassifier(), PARAM_GRIDS['RandomForestClassifier']],
-                      dict(cv=5, scoring=SCORING, n_jobs=-1)],
-    'adaboost': [[AdaBoostClassifier(DecisionTreeClassifier(max_depth=2)), PARAM_GRIDS['AdaBoost']],
-                 dict(cv=5, scoring=SCORING, n_jobs=-1)]
+    'lr': [[LogisticRegression(), PARAM_GRIDS['LogisticRegression']], GRIDSEARHCV_KWARGS],
+    'svm': [[LinearSVC(), PARAM_GRIDS['LinearSVC']], GRIDSEARHCV_KWARGS],
+    'random_forest': [[RandomForestClassifier(), PARAM_GRIDS['RandomForestClassifier']], GRIDSEARHCV_KWARGS],
+    'adaboost': [[AdaBoostClassifier(DecisionTreeClassifier(max_depth=2)), PARAM_GRIDS['AdaBoost']], GRIDSEARHCV_KWARGS]
 }
 
 
