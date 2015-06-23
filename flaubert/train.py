@@ -1,6 +1,5 @@
 from __future__ import print_function
 
-import json
 import numpy as np
 from gensim.models import word2vec
 from sklearn.cross_validation import train_test_split
@@ -11,7 +10,7 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier, \
     ExtraTreesClassifier
 from sklearn.linear_model import LogisticRegression
-from pymaptools.io import PathArgumentParser, GzipFileType
+from pymaptools.io import PathArgumentParser, GzipFileType, read_json_lines
 from flaubert.preprocess import read_tsv
 
 
@@ -67,11 +66,11 @@ PARAM_GRIDS = {
         # {'dual': [True], 'penalty':['l2'], 'C': [0.1, 1, 10, 100]}
     ],
     'RandomForestClassifier': {
-        "n_estimators": [30, 40],
-        "max_depth": [10, 30],
-        "max_features": [50, 100],
-        "min_samples_split": [100],
-        "min_samples_leaf": [100],
+        "n_estimators": [30, 60, 120],
+        "max_depth": [8, 16],
+        "max_features": [100, None],
+        "min_samples_split": [2, 20],
+        "min_samples_leaf": [1, 10],
         "bootstrap": [False],
         "criterion": ["gini", "entropy"]
     },
@@ -184,12 +183,11 @@ def parse_args(args=None):
     return namespace
 
 
-def run(args):
-    model = word2vec.Word2Vec.load(args.word2vec)
+def run(args, model=None):
+    if model is None:
+        model = word2vec.Word2Vec.load(args.word2vec)
     _, num_features = model.syn0.shape
-    clean_train_reviews = []
-    for line in args.wordlist:
-        clean_train_reviews.append(json.loads(line))
+    clean_train_reviews = list(read_json_lines(args.wordlist))
     training_set = read_tsv(args.train)
     feature_vectors = getAvgFeatureVecs(clean_train_reviews, model, num_features)
     if args.plot_features:

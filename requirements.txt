@@ -6,4 +6,4 @@ regex
 pandas
 beautifulsoup4
 fastcache
-git+https://github.com/Livefyre/pymaptools#egg=pymaptools-0.1.12
+git+https://github.com/Livefyre/pymaptools#egg=pymaptools-0.1.13
