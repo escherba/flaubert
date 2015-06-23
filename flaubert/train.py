@@ -70,11 +70,11 @@ PARAM_GRIDS = {
         # {'dual': [True], 'penalty':['l2'], 'C': [0.1, 1, 10, 100]}
     ],
     'RandomForestClassifier': {
-        "n_estimators": [60, 90],
+        "n_estimators": [60],
         "max_depth": [16, 32],
-        "max_features": [200],
+        "max_features": [100],
         "min_samples_split": [2, 4],
-        "min_samples_leaf": [1, 3],
+        "min_samples_leaf": [1, 2, 4],
         "bootstrap": [False],
         "criterion": ["entropy"]
     },
