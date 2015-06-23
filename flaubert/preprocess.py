@@ -5,6 +5,7 @@ import regex as re
 import sys
 import abc
 import logging
+from bs4 import BeautifulSoup
 from itertools import islice
 from functools import partial
 from nltk.corpus import stopwords
@@ -13,7 +14,7 @@ from nltk import pos_tag
 from joblib import Parallel, delayed
 from fastcache import clru_cache
 from pymaptools.io import write_json_line, PathArgumentParser, GzipFileType
-from flaubert.tokenize import RegexFeatureTokenizer
+from flaubert.tokenize import RegexpFeatureTokenizer
 from flaubert.urls import URLParser
 from flaubert.conf import CONFIG
 from flaubert.HTMLParser import HTMLParser, HTMLParseError
@@ -94,6 +95,14 @@ class Translator(Replacer):
     def __init__(self, translate_map):
         self._translate_map = {ord(k): ord(v) for k, v in translate_map.iteritems()}
 
+    @classmethod
+    def from_inverse_map(cls, inverse_map):
+        replace_map = {}
+        for key, vals in (inverse_map or {}).iteritems():
+            for val in vals:
+                replace_map[val] = key
+        return cls(replace_map)
+
     def replace(self, text):
         """Replace characters
         """
@@ -158,9 +167,9 @@ class MLStripper(HTMLParser):
 class HTMLCleaner(object):
 
     _remove_full_comment = partial(
-        (re.compile(ur"(?s)<!--(.*?)-->[\n]?", re.UNICODE)).subn, ur'\1')
+        (re.compile(ur"(?s)<!--(.*?)-->[\n]?", re.UNICODE)).sub, ur'\1')
     _remove_partial_comment = partial(
-        (re.compile(ur"<!--", re.UNICODE)).subn, u"")
+        (re.compile(ur"<!--", re.UNICODE)).sub, u"")
 
     def __init__(self, strip_html=True, strip_html_comments=True):
         self._strip_html = strip_html
@@ -170,8 +179,8 @@ class HTMLCleaner(object):
         """Remove HTML markup from the given string
         """
         if self._strip_html_comments:
-            html, num_full_comments = self._remove_full_comment(html)
-            html, num_partial_comments = self._remove_partial_comment(html)
+            html = self._remove_full_comment(html)
+            html = self._remove_partial_comment(html)
         if html and self._strip_html:
             stripper = MLStripper()
             try:
@@ -188,9 +197,10 @@ class SimpleSentenceTokenizer(object):
     def __init__(self, lemmatizer=None, stemmer=None, url_parser=None,
                  unicode_form='NFKC', nltk_stop_words="english",
                  nltk_sentence_tokenizer='tokenizers/punkt/english.pickle',
-                 max_char_repeats=3, lru_cache_size=50000, replace_map=None):
+                 max_char_repeats=3, lru_cache_size=50000, replace_map=None,
+                 html_renderer='default'):
         self._unicode_normalize = partial(unicodedata.normalize, unicode_form)
-        self._tokenize = RegexFeatureTokenizer().tokenize
+        self._tokenize = RegexpFeatureTokenizer().tokenize
         self._stopwords = frozenset(stopwords.words(nltk_stop_words))
         self._url_parser = url_parser
         self._sentence_tokenize = nltk.data.load(nltk_sentence_tokenizer).tokenize
@@ -200,8 +210,15 @@ class SimpleSentenceTokenizer(object):
         self._replace_char_repeats = \
             RepeatReplacer(max_repeats=max_char_repeats).replace \
             if max_char_repeats > 0 else self._identity
-        self._replace_chars = self.create_char_replacer(replace_map).replace
-        self.strip_html = HTMLCleaner().clean
+        self._replace_chars = Translator.from_inverse_map(replace_map).replace
+        if html_renderer is None:
+            self.strip_html = lambda x: x
+        elif html_renderer == u'default':
+            self.strip_html = HTMLCleaner().clean
+        elif html_renderer == u'beautifulsoup':
+            self.strip_html = self._strip_html_bs
+        else:
+            raise ValueError('Invalid parameter value given for `html_renderer`')
 
         # tokenize a dummy string b/c lemmatizer and/or other tools can take
         # a while to initialize screwing up our attempts to measure performance
@@ -211,15 +228,7 @@ class SimpleSentenceTokenizer(object):
     def _identity(arg):
         return arg
 
-    @staticmethod
-    def create_char_replacer(replace_map):
-        inverse_replace_map = {}
-        for key, vals in (replace_map or {}).iteritems():
-            for val in vals:
-                inverse_replace_map[val] = key
-        return Translator(inverse_replace_map)
-
-    def _preprocess_text(self, text):
+    def _preprocess_text(self, text, lowercase=True):
         # 1. Remove HTML
         text = self.strip_html(text)
         # 2. Normalize Unicode
@@ -229,15 +238,43 @@ class SimpleSentenceTokenizer(object):
         # 4. whiteout URLs
         text = self._url_parser.whiteout_urls(text)
         # 5. Lowercase
-        text = text.lower()
+        if lowercase:
+            text = text.lower()
         # 6. Reduce repeated characters to specified number (usually 3)
         text = self._replace_char_repeats(text)
         return text
 
-    def word_tokenize(self, text, preprocess=True, remove_stopwords=True):
+    #def _preprocess_text(self, text, lowercase=True):
+    #    # 1. Remove HTML
+    #    text = self.strip_html(text)
+    #    # 3. Lowercase
+    #    if lowercase:
+    #        text = text.lower()
+    #    return text
+
+    def _strip_html_bs(self, text):
+        """
+        Use BeautifulSoup to strip off HTML but in such a way that <BR> and
+        <P> tags get rendered as new lines
+        """
+        soup = BeautifulSoup(text)
+        fragments = []
+        for element in soup.recursiveChildGenerator():
+            if isinstance(element, basestring):
+                fragments.append(element.strip())
+            elif element.name == 'br':
+                fragments.append(u"\n")
+            elif element.name == 'p':
+                fragments.append(u"\n")
+        result = u"".join(fragments).strip()
+        return result
+
+    def word_tokenize(self, text, lowercase=True, preprocess=True, remove_stopwords=False):
         # 1. Misc. preprocessing
         if preprocess:
-            text = self._preprocess_text(text)
+            text = self._preprocess_text(text, lowercase=lowercase)
+        elif lowercase:
+            text = text.lower()
 
         # 2. Tokenize
         words = self._tokenize(text)
@@ -267,14 +304,14 @@ class SimpleSentenceTokenizer(object):
     def sentence_tokenize(self, text, preprocess=True,
                           remove_stopwords=False):
         if preprocess:
-            text = self._preprocess_text(text)
+            text = self._preprocess_text(text, lowercase=False)
 
         sentences = []
         for raw_sentence in self._sentence_tokenize(text):
             if not raw_sentence:
                 continue
             words = self.word_tokenize(
-                raw_sentence, preprocess=False,
+                raw_sentence, preprocess=False, lowercase=True,
                 remove_stopwords=remove_stopwords)
             if not words:
                 continue

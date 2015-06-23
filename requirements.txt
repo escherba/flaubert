@@ -4,5 +4,6 @@ gensim
 nltk
 regex
 pandas
-git+https://github.com/Livefyre/pymaptools#egg=pymaptools-0.1.12
-fastcache==1.0.2
+beautifulsoup4
+fastcache
+git+https://github.com/Livefyre/pymaptools#egg=pymaptools-0.1.13
