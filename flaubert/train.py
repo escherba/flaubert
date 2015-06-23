@@ -71,10 +71,10 @@ PARAM_GRIDS = {
     ],
     'RandomForestClassifier': {
         "n_estimators": [60],
-        "max_depth": [16, 32],
-        "max_features": [100],
-        "min_samples_split": [2, 4],
-        "min_samples_leaf": [1, 2, 4],
+        "max_depth": [8, 16, 32],
+        "max_features": [50, 100],
+        "min_samples_split": [2, 3],
+        "min_samples_leaf": [1, 4, 16],
         "bootstrap": [False],
         "criterion": ["entropy"]
     },
