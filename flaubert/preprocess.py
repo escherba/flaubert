@@ -1,5 +1,4 @@
 import nltk
-import pandas as pd
 import unicodedata
 import regex as re
 import sys
@@ -18,25 +17,12 @@ from flaubert.tokenize import RegexpFeatureTokenizer
 from flaubert.urls import URLParser
 from flaubert.conf import CONFIG
 from flaubert.HTMLParser import HTMLParser, HTMLParseError
-
-
-TREEBANK2WORDNET = {
-    'J': wordnet.wordnet.ADJ,
-    'V': wordnet.wordnet.VERB,
-    'N': wordnet.wordnet.NOUN,
-    'R': wordnet.wordnet.ADV
-}
+from flaubert.utils import read_tsv, treebank2wordnet
+from flaubert.unicode_maps import EXTRA_TRANSLATE_MAP
 
 
 logging.basicConfig(level=logging.WARN)
 LOG = logging.getLogger(__name__)
-
-
-def treebank2wordnet(treebank_tag):
-    if not treebank_tag:
-        return None
-    letter = treebank_tag[0]
-    return TREEBANK2WORDNET.get(letter)
 
 
 class Replacer(object):
@@ -92,16 +78,26 @@ class RepeatReplacer(Replacer):
 class Translator(Replacer):
     """Replace certain characters
     """
-    def __init__(self, translate_map):
-        self._translate_map = {ord(k): ord(v) for k, v in translate_map.iteritems()}
+    def __init__(self, translate_mapping=None, translated=False):
+        if translated:
+            self._translate_map = dict((translate_mapping or {}).iteritems())
+        else:
+            self._translate_map = {ord(k): ord(v) for k, v in (translate_mapping or {}).iteritems()}
 
-    @classmethod
-    def from_inverse_map(cls, inverse_map):
+    def add_inverse_map(self, inverse_mapping, translated=False):
         replace_map = {}
-        for key, vals in (inverse_map or {}).iteritems():
+        for key, vals in (inverse_mapping or {}).iteritems():
             for val in vals:
                 replace_map[val] = key
-        return cls(replace_map)
+        self.add_map(replace_map, translated=translated)
+
+    def add_map(self, mapping, translated=False):
+        replace_map = self._translate_map
+        if translated:
+            replace_map.update(mapping)
+        else:
+            for key, val in mapping.iteritems():
+                replace_map[ord(key)] = ord(val)
 
     def replace(self, text):
         """Replace characters
@@ -210,7 +206,12 @@ class SimpleSentenceTokenizer(object):
         self._replace_char_repeats = \
             RepeatReplacer(max_repeats=max_char_repeats).replace \
             if max_char_repeats > 0 else self._identity
-        self._replace_chars = Translator.from_inverse_map(replace_map).replace
+
+        # translation of Unicode characters
+        translator = Translator(EXTRA_TRANSLATE_MAP, translated=True)
+        translator.add_inverse_map(replace_map, translated=False)
+        self._replace_chars = translator.replace
+
         if html_renderer is None:
             self.strip_html = lambda x: x
         elif html_renderer == u'default':
@@ -243,14 +244,6 @@ class SimpleSentenceTokenizer(object):
         # 6. Reduce repeated characters to specified number (usually 3)
         text = self._replace_char_repeats(text)
         return text
-
-    #def _preprocess_text(self, text, lowercase=True):
-    #    # 1. Remove HTML
-    #    text = self.strip_html(text)
-    #    # 3. Lowercase
-    #    if lowercase:
-    #        text = text.lower()
-    #    return text
 
     def _strip_html_bs(self, text):
         """
@@ -319,13 +312,6 @@ class SimpleSentenceTokenizer(object):
         return sentences
 
     tokenize = word_tokenize
-
-
-def read_tsv(file_input, iterator=False, chunksize=None):
-    return pd.read_csv(
-        file_input, iterator=iterator, chunksize=chunksize,
-        header=0, quoting=2, delimiter="\t", escapechar="\\", quotechar='"',
-        encoding="utf-8")
 
 
 def get_field_iter(field, datasets, chunksize=1000):

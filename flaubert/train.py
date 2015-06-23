@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import numpy as np
+import logging
 from gensim.models import word2vec
 from sklearn.cross_validation import train_test_split
 from sklearn.grid_search import GridSearchCV
@@ -12,6 +13,9 @@ from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier, \
 from sklearn.linear_model import LogisticRegression
 from pymaptools.io import PathArgumentParser, GzipFileType, read_json_lines
 from flaubert.preprocess import read_tsv
+
+
+logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
 
 def makeFeatureVec(words, model, num_features):
@@ -66,29 +70,31 @@ PARAM_GRIDS = {
         # {'dual': [True], 'penalty':['l2'], 'C': [0.1, 1, 10, 100]}
     ],
     'RandomForestClassifier': {
-        "n_estimators": [30, 60, 120],
-        "max_depth": [8, 16],
-        "max_features": [100, None],
-        "min_samples_split": [2, 20],
-        "min_samples_leaf": [1, 10],
+        "n_estimators": [90],
+        "max_depth": [32, 64],
+        "max_features": [50, 75, 100],
+        "min_samples_split": [2],
+        "min_samples_leaf": [2, 3],
         "bootstrap": [False],
-        "criterion": ["gini", "entropy"]
+        "criterion": ["entropy"]
     },
     'AdaBoost': {
-        'n_estimators': [30, 60],
+        'n_estimators': [60],
+        'learning_rate': [0.8],
         'algorithm': ['SAMME.R']
     }
 }
 
+GRIDSEARHCV_KWARGS = dict(cv=5, scoring=SCORING, n_jobs=-1, verbose=10)
+DECISION_TREE_PARAMS = dict(
+    criterion="entropy", max_depth=2, min_samples_split=2, min_samples_leaf=2
+)
+
 CLASSIFIER_GRIDS = {
-    'lr': [[LogisticRegression(), PARAM_GRIDS['LogisticRegression']],
-           dict(cv=5, scoring=SCORING, n_jobs=-1)],
-    'svm': [[LinearSVC(), PARAM_GRIDS['LinearSVC']],
-            dict(cv=5, scoring=SCORING, n_jobs=-1)],
-    'random_forest': [[RandomForestClassifier(), PARAM_GRIDS['RandomForestClassifier']],
-                      dict(cv=5, scoring=SCORING, n_jobs=-1)],
-    'adaboost': [[AdaBoostClassifier(DecisionTreeClassifier(max_depth=2)), PARAM_GRIDS['AdaBoost']],
-                 dict(cv=5, scoring=SCORING, n_jobs=-1)]
+    'lr': [[LogisticRegression(), PARAM_GRIDS['LogisticRegression']], GRIDSEARHCV_KWARGS],
+    'svm': [[LinearSVC(), PARAM_GRIDS['LinearSVC']], GRIDSEARHCV_KWARGS],
+    'random_forest': [[RandomForestClassifier(), PARAM_GRIDS['RandomForestClassifier']], GRIDSEARHCV_KWARGS],
+    'adaboost': [[AdaBoostClassifier(DecisionTreeClassifier(**DECISION_TREE_PARAMS)), PARAM_GRIDS['AdaBoost']], GRIDSEARHCV_KWARGS]
 }
 
 

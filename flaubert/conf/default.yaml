@@ -15,8 +15,6 @@ tokenizer:
         '"': "\u201c\u201d\u201e\u201f\u275d\u275e",
         # multiplication sign
         'x': "\u00d7",
-        # map non-breaking space to regular space
-        ' ': "\xa0"
     }
 
 lemmatizer: "wordnet"  # null or "wordnet"
