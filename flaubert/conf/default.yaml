@@ -4,6 +4,7 @@ tokenizer:
     nltk_sentence_tokenizer: "tokenizers/punkt/english.pickle"
     max_char_repeats: 3
     lru_cache_size: 50000   # cache size (for wordnet lemmatizer only at the moment)
+    html_renderer: "default"  # Either null or "default" or "beautifulsoup"
     replace_map: {
         # normalize hashtags and mentions
         "@": "＠",
@@ -13,10 +14,12 @@ tokenizer:
         # replace fancy double apostrophes
         '"': "\u201c\u201d\u201e\u201f\u275d\u275e",
         # multiplication sign
-        'x': "\u00d7"
+        'x': "\u00d7",
+        # map non-breaking space to regular space
+        ' ': "\xa0"
     }
 
-lemmatizer: wordnet  # null or "wordnet"
+lemmatizer: null  # null or "wordnet"
 stemmer: null   # null or "porter"
 
 word2vec:
