@@ -50,7 +50,7 @@ $(NLTK_DIR_DONE):
 	touch $@
 
 %.sents.gz: %.tsv | $(CONFIG) $(NLTK_DIR_DONE) $(SENT_TOKENIZER)
-	$(PYTHON) -m flaubert.preprocess --limit 10000 --input $*.tsv --output $@ tokenize --sentences
+	$(PYTHON) -m flaubert.preprocess --input $*.tsv --output $@ tokenize --sentences
 
 %.words.gz: %.tsv | $(CONFIG) $(NLTK_DIR_DONE)
 	$(PYTHON) -m flaubert.preprocess --input $*.tsv --output $@ tokenize
