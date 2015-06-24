@@ -30,6 +30,7 @@ nltk: $(NLTK_DIR_DONE)
 pretrain: $(WORD2VEC)
 	@echo "done"
 
+.SECONDARY:
 %.tsv: %.tsv.zip
 	unzip -p $< > $@
 
