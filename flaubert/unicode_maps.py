@@ -1,5 +1,14 @@
 # -*- coding: utf-8 -*-
 
+"""
+Misc normalization of surrogates, spaces, and homographs
+
+See http://homoglyphs.net for more characters that could be normalized
+
+Other links:
+http://www.lookout.net/2008/11/unicode-attacks-and-test-cases-visual.html
+"""
+
 import sys
 import unicodedata
 from itertools import chain, izip
