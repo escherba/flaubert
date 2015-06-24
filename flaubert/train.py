@@ -76,7 +76,7 @@ PARAM_GRIDS = {
         "min_samples_split": [2],
         "min_samples_leaf": [2, 3],
         "bootstrap": [False],
-        "criterion": ["entropy"]
+        "criterion": ["gini"]
     },
     'AdaBoost': {
         'n_estimators': [60],
@@ -87,7 +87,7 @@ PARAM_GRIDS = {
 
 GRIDSEARHCV_KWARGS = dict(cv=5, scoring=SCORING, n_jobs=-1, verbose=10)
 DECISION_TREE_PARAMS = dict(
-    criterion="entropy", max_depth=2, min_samples_split=2, min_samples_leaf=2
+    criterion="gini", max_depth=2, min_samples_split=2, min_samples_leaf=2
 )
 
 CLASSIFIER_GRIDS = {

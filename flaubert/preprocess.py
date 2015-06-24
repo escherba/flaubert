@@ -4,6 +4,9 @@ import regex as re
 import sys
 import abc
 import logging
+import os
+import cPickle as pickle
+from pkg_resources import resource_filename
 from bs4 import BeautifulSoup
 from itertools import islice
 from functools import partial
@@ -12,7 +15,7 @@ from nltk.stem import wordnet, PorterStemmer
 from nltk import pos_tag
 from joblib import Parallel, delayed
 from fastcache import clru_cache
-from pymaptools.io import write_json_line, PathArgumentParser, GzipFileType
+from pymaptools.io import write_json_line, PathArgumentParser, GzipFileType, open_gz
 from flaubert.tokenize import RegexpFeatureTokenizer
 from flaubert.urls import URLParser
 from flaubert.conf import CONFIG
@@ -192,14 +195,38 @@ class SimpleSentenceTokenizer(object):
 
     def __init__(self, lemmatizer=None, stemmer=None, url_parser=None,
                  unicode_form='NFKC', nltk_stop_words="english",
-                 nltk_sentence_tokenizer='tokenizers/punkt/english.pickle',
+                 sentence_tokenizer=('nltk_data', 'tokenizers/punkt/english.pickle'),
                  max_char_repeats=3, lru_cache_size=50000, replace_map=None,
-                 html_renderer='default'):
+                 html_renderer='default', add_abbrev_types=None, del_sent_starters=None):
         self._unicode_normalize = partial(unicodedata.normalize, unicode_form)
         self._tokenize = RegexpFeatureTokenizer().tokenize
         self._stopwords = frozenset(stopwords.words(nltk_stop_words))
         self._url_parser = url_parser
-        self._sentence_tokenize = nltk.data.load(nltk_sentence_tokenizer).tokenize
+
+        self._sentence_tokenizer = None
+        if sentence_tokenizer is None:
+            self._sentence_tokenize = lambda x: [x]
+        elif sentence_tokenizer[0] == 'nltk_data':
+            punkt = nltk.data.load(sentence_tokenizer[1])
+            self._sentence_tokenize = punkt.tokenize
+        elif sentence_tokenizer[0] == 'data':
+            tokenizer_path = os.path.join('..', 'data', sentence_tokenizer[1])
+            tokenizer_path = resource_filename(__name__, tokenizer_path)
+            if os.path.exists(tokenizer_path):
+                with open_gz(tokenizer_path, 'rb') as fhandle:
+                    punkt = pickle.load(fhandle)
+                if add_abbrev_types:
+                    punkt._params.abbrev_types = punkt._params.abbrev_types | set(add_abbrev_types)
+                if del_sent_starters:
+                    punkt._params.sent_starters = punkt._params.sent_starters - set(del_sent_starters)
+                self._sentence_tokenize = punkt.sentences_from_text
+                self._sentence_tokenizer = punkt
+            else:
+                logging.warn("Tokenizer not found at %s" % tokenizer_path)
+        else:
+            raise ValueError("Invalid sentence tokenizer class")
+
+        self.sentence_tokenizer = None
         self._lemmatize = clru_cache(maxsize=lru_cache_size)(lemmatizer.lemmatize) if lemmatizer else None
         self._stem = stemmer.stem if stemmer else None
         self._pos_tag = pos_tag
@@ -229,7 +256,7 @@ class SimpleSentenceTokenizer(object):
     def _identity(arg):
         return arg
 
-    def _preprocess_text(self, text, lowercase=True):
+    def preprocess(self, text, lowercase=True):
         # 1. Remove HTML
         text = self.strip_html(text)
         # 2. Normalize Unicode
@@ -265,7 +292,7 @@ class SimpleSentenceTokenizer(object):
     def word_tokenize(self, text, lowercase=True, preprocess=True, remove_stopwords=False):
         # 1. Misc. preprocessing
         if preprocess:
-            text = self._preprocess_text(text, lowercase=lowercase)
+            text = self.preprocess(text, lowercase=lowercase)
         elif lowercase:
             text = text.lower()
 
@@ -297,7 +324,7 @@ class SimpleSentenceTokenizer(object):
     def sentence_tokenize(self, text, preprocess=True,
                           remove_stopwords=False):
         if preprocess:
-            text = self._preprocess_text(text, lowercase=False)
+            text = self.preprocess(text, lowercase=False)
 
         sentences = []
         for raw_sentence in self._sentence_tokenize(text):
@@ -360,24 +387,6 @@ def get_words(review, **kwargs):
     return TOKENIZER.tokenize(review, **kwargs)
 
 
-def parse_args(args=None):
-    parser = PathArgumentParser()
-    parser.add_argument('--input', type=GzipFileType('r'), default=[sys.stdin], nargs='*',
-                        help='Input file (in TSV format, optionally compressed)')
-    parser.add_argument('--field', type=str, default='review',
-                        help='Field name (Default: review)')
-    parser.add_argument('--sentences', action='store_true',
-                        help='split by sentence instead of by record')
-    parser.add_argument('--limit', type=int, default=None,
-                        help='Only process this many lines (for testing)')
-    parser.add_argument('--n_jobs', type=int, default=-1,
-                        help="Number of jobs to run")
-    parser.add_argument('--output', type=GzipFileType('w'), default=sys.stdout,
-                        help='File to write sentences to, optionally compressed')
-    namespace = parser.parse_args(args)
-    return namespace
-
-
 def get_review_iterator(args):
     iterator = get_field_iter(args.field, args.input, chunksize=1000)
     if args.limit:
@@ -385,29 +394,84 @@ def get_review_iterator(args):
     return iterator
 
 
-def get_tokenize_method(args):
+def get_mapper_method(args):
     if args.sentences:
-        tokenize = get_sentences
+        mapper = get_sentences
     else:
-        tokenize = get_words
-    return tokenize
+        mapper = get_words
+    return mapper
 
 
-def run(args):
+def run_tokenize(args):
     iterator = get_review_iterator(args)
-    tokenize = get_tokenize_method(args)
+    mapper = get_mapper_method(args)
     write_record = partial(write_json_line, args.output)
     if args.n_jobs == 1:
         # turn off parallelism
         for review in iterator:
-            record = tokenize(review)
+            record = mapper(review)
             write_record(record)
     else:
         # enable parallellism
         for record in Parallel(n_jobs=args.n_jobs, verbose=10)(
-                delayed(tokenize)(review) for review in iterator):
+                delayed(mapper)(review) for review in iterator):
             write_record(record)
 
 
+def run_train(args):
+    from nltk.tokenize.punkt import PunktTrainer, \
+        PunktLanguageVars, PunktSentenceTokenizer
+    iterator = get_review_iterator(args)
+    reviews = []
+    for review in iterator:
+        reviews.append(TOKENIZER.preprocess(review, lowercase=False))
+    text = u'\n\n'.join(reviews)
+    custom_lang_vars = PunktLanguageVars
+    custom_lang_vars.sent_end_chars = ('.', '?', '!', '\n')
+
+    # TODO: check if we need to manually specify common abbreviations
+    punkt = PunktTrainer(verbose=args.verbose, lang_vars=custom_lang_vars())
+    abbrev_sent = u'Start %s end.' % u' '.join(CONFIG['tokenizer']['add_abbrev_types'])
+    punkt.train(abbrev_sent, finalize=False)
+    punkt.train(text, finalize=False)
+    punkt.finalize_training()
+    model = PunktSentenceTokenizer(punkt.get_params())
+    pickle.dump(model, args.output, protocol=pickle.HIGHEST_PROTOCOL)
+
+
+def parse_args(args=None):
+    parser = PathArgumentParser()
+    parser.add_argument('--input', type=GzipFileType('r'), default=[sys.stdin], nargs='*',
+                        help='Input file (in TSV format, optionally compressed)')
+    parser.add_argument('--field', type=str, default='review',
+                        help='Field name (Default: review)')
+    parser.add_argument('--limit', type=int, default=None,
+                        help='Only process this many lines (for testing)')
+    parser.add_argument('--n_jobs', type=int, default=-1,
+                        help="Number of jobs to run")
+    parser.add_argument('--output', type=GzipFileType('w'), default=sys.stdout,
+                        help='Output file')
+
+    subparsers = parser.add_subparsers()
+
+    parser_tokenize = subparsers.add_parser('tokenize')
+    parser_tokenize.add_argument('--sentences', action='store_true',
+                                 help='split on sentences')
+    parser_tokenize.set_defaults(func=run_tokenize)
+
+    parser_train = subparsers.add_parser('train')
+    parser_train.add_argument('--verbose', action='store_true',
+                              help='be verbose')
+    parser_train.set_defaults(func=run_train)
+
+    namespace = parser.parse_args(args)
+    return namespace
+
+
+def run():
+    args = parse_args()
+    args.func(args)
+
+
 if __name__ == "__main__":
-    run(parse_args())
+    run()

@@ -8,6 +8,7 @@ LABELED_TRAIN = $(DATA_DIR)/labeledTrainData
 UNLABELED_TRAIN =  $(DATA_DIR)/unlabeledTrainData
 TRAIN = $(LABELED_TRAIN) $(UNLABELED_TRAIN)
 WORD2VEC = $(DATA_DIR)/300features_40minwords_10context
+SENT_TOKENIZER = $(DATA_DIR)/sentence_tokenizer.pickle
 
 export NLTK_DATA=$(NLTK_DIR)
 
@@ -29,8 +30,10 @@ nltk: $(NLTK_DIR_DONE)
 pretrain: $(WORD2VEC)
 	@echo "done"
 
-train: $(LABELED_TRAIN).tsv.zip $(LABELED_TRAIN).words.gz $(WORD2VEC)
-	unzip -p $(LABELED_TRAIN).tsv.zip > $(LABELED_TRAIN).tsv
+%.tsv: %.tsv.zip
+	unzip -p $< > $@
+
+train: $(LABELED_TRAIN).tsv $(LABELED_TRAIN).words.gz $(WORD2VEC)
 	$(PYTHON) -m flaubert.train \
 		--classifier svm --word2vec $(WORD2VEC) \
 		--train $(LABELED_TRAIN).tsv --wordlist $(LABELED_TRAIN).words.gz
@@ -46,10 +49,11 @@ $(NLTK_DIR_DONE):
 	$(PYTHON) -m nltk.downloader -d $(NLTK_DIR) wordnet stopwords punkt maxent_treebank_pos_tagger
 	touch $@
 
-%.sents.gz: %.tsv.zip | $(CONFIG) $(NLTK_DIR_DONE)
-	unzip -p $< > $*.tsv
-	$(PYTHON) -m flaubert.preprocess --sentences --input $*.tsv --output $@
+%.sents.gz: %.tsv | $(CONFIG) $(NLTK_DIR_DONE) $(SENT_TOKENIZER)
+	$(PYTHON) -m flaubert.preprocess --limit 10000 --input $*.tsv --output $@ tokenize --sentences
 
-%.words.gz: %.tsv.zip | $(CONFIG) $(NLTK_DIR_DONE)
-	unzip -p $< > $*.tsv
-	$(PYTHON) -m flaubert.preprocess --input $*.tsv --output $@
+%.words.gz: %.tsv | $(CONFIG) $(NLTK_DIR_DONE)
+	$(PYTHON) -m flaubert.preprocess --input $*.tsv --output $@ tokenize
+
+$(SENT_TOKENIZER): $(LABELED_TRAIN).tsv $(UNLABELED_TRAIN).tsv
+	$(PYTHON) -m flaubert.preprocess --input $^ --output $@ train --verbose

@@ -1,7 +1,8 @@
 tokenizer:
     unicode_form: "NFKC"
     nltk_stop_words: "english"
-    nltk_sentence_tokenizer: "tokenizers/punkt/english.pickle"
+    #sentence_tokenizer: ['nltk_data', 'tokenizers/punkt/english.pickle']
+    sentence_tokenizer: ['data', 'sentence_tokenizer.pickle']
     max_char_repeats: 3
     lru_cache_size: 50000   # cache size (for wordnet lemmatizer only at the moment)
     html_renderer: "default"  # Either null or "default" or "beautifulsoup"
@@ -16,6 +17,13 @@ tokenizer:
         # multiplication sign
         'x': "\u00d7",
     }
+    add_abbrev_types: [
+        'c.s.i', 'm.i.a', 'd.j', 'p.c', 'st', 'd.c', 'n.y.c', 'l.a', 's.f', 'bros',
+        'v','co', 'u.s', 'dr', 'vs', 'jr', 'sr', 'ms', 'mr', 'mrs', 'prof', 'inc',
+        'pron', 'col', 'lt', 'gen', 'sgt']
+    del_sent_starters: [
+        'seuss', 'strangelove', 'jekyll', 'moreau', 'hackenstein', 'blandings',
+        'atoz', 'john']   # commonly prefixed with Dr. or St.
 
 lemmatizer: "wordnet"  # null or "wordnet"
 stemmer: null   # null or "porter"
