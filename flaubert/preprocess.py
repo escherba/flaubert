@@ -78,6 +78,49 @@ class RepeatReplacer(Replacer):
         pass
 
 
+class GenericReplacer(Replacer):
+
+    __metaclass__ = abc.ABCMeta
+
+    def __init__(self, re):
+        self._re = re
+
+    @abc.abstractmethod
+    def __call__(self, match):
+        """Override this to provide your own substitution method"""
+
+    def replace(self, text):
+        return self._re.sub(self, text)
+
+    def replacen(self, text):
+        return self._re.subn(self, text)
+
+
+class InPlaceReplacer(GenericReplacer):
+
+    def __init__(self, replace_map=None):
+        if replace_map is None:
+            replace_map = dict()
+        _replacements = dict()
+        _regexes = list()
+        for idx, (key, val) in enumerate(replace_map.iteritems()):
+            _replacements[idx] = val
+            _regexes.append(u'({})'.format(key))
+        self._replacements = _replacements
+        super(InPlaceReplacer, self).__init__(
+            re=re.compile(u'|'.join(_regexes), re.UNICODE | re.IGNORECASE))
+
+    def __call__(self, match):
+        lastindex = match.lastindex
+        if lastindex is None:
+            return u''
+        replacement = self._replacements[lastindex - 1]
+        matched_string = match.group(lastindex)
+        return replacement.get(matched_string.lower(), matched_string) \
+            if isinstance(replacement, dict) \
+            else replacement
+
+
 class Translator(Replacer):
     """Replace certain characters
     """
@@ -196,9 +239,12 @@ class SimpleSentenceTokenizer(object):
     def __init__(self, lemmatizer=None, stemmer=None, url_parser=None,
                  unicode_form='NFKC', nltk_stop_words="english",
                  sentence_tokenizer=('nltk_data', 'tokenizers/punkt/english.pickle'),
-                 max_char_repeats=3, lru_cache_size=50000, replace_map=None,
-                 html_renderer='default', add_abbrev_types=None, del_sent_starters=None):
+                 max_char_repeats=3, lru_cache_size=50000, translate_map_inv=None,
+                 replace_map=None, html_renderer='default', add_abbrev_types=None,
+                 del_sent_starters=None):
         self._unicode_normalize = partial(unicodedata.normalize, unicode_form)
+        self._replace_inplace = InPlaceReplacer(replace_map).replace \
+            if replace_map else lambda x: x
         self._tokenize = RegexpFeatureTokenizer().tokenize
         self._stopwords = frozenset(stopwords.words(nltk_stop_words))
         self._url_parser = url_parser
@@ -222,6 +268,7 @@ class SimpleSentenceTokenizer(object):
                 self._sentence_tokenize = punkt.sentences_from_text
                 self._sentence_tokenizer = punkt
             else:
+                self._sentence_tokenize = lambda x: [x]
                 logging.warn("Tokenizer not found at %s" % tokenizer_path)
         else:
             raise ValueError("Invalid sentence tokenizer class")
@@ -236,7 +283,7 @@ class SimpleSentenceTokenizer(object):
 
         # translation of Unicode characters
         translator = Translator(EXTRA_TRANSLATE_MAP, translated=True)
-        translator.add_inverse_map(replace_map, translated=False)
+        translator.add_inverse_map(translate_map_inv, translated=False)
         self._replace_chars = translator.replace
 
         if html_renderer is None:
@@ -256,11 +303,19 @@ class SimpleSentenceTokenizer(object):
     def _identity(arg):
         return arg
 
+    def unicode_normalize(self, text):
+        # 1. Normalize to specific Unicode form (also replaces ellipsis with
+        # periods)
+        text = self._unicode_normalize(text)
+        # 2. Replace certain chars such as n- and m-dashes
+        text = self._replace_inplace(text)
+        return text
+
     def preprocess(self, text, lowercase=True):
         # 1. Remove HTML
         text = self.strip_html(text)
         # 2. Normalize Unicode
-        text = self._unicode_normalize(text)
+        text = self.unicode_normalize(text)
         # 3. Replace certain characters
         text = self._replace_chars(text)
         # 4. whiteout URLs
@@ -419,15 +474,18 @@ def run_tokenize(args):
 
 
 def run_train(args):
-    from nltk.tokenize.punkt import PunktTrainer, \
+    from flaubert.punkt import PunktTrainer, \
         PunktLanguageVars, PunktSentenceTokenizer
     iterator = get_review_iterator(args)
     reviews = []
     for review in iterator:
-        reviews.append(TOKENIZER.preprocess(review, lowercase=False))
+        review = TOKENIZER.preprocess(review, lowercase=False).strip()
+        if not review.endswith(u'.'):
+            review += u'.'
+        reviews.append(review)
     text = u'\n\n'.join(reviews)
     custom_lang_vars = PunktLanguageVars
-    custom_lang_vars.sent_end_chars = ('.', '?', '!', '\n')
+    custom_lang_vars.sent_end_chars = ('.', '?', '!')
 
     # TODO: check if we need to manually specify common abbreviations
     punkt = PunktTrainer(verbose=args.verbose, lang_vars=custom_lang_vars())

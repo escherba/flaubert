@@ -35,6 +35,8 @@ def count_stars(num_stars):
 DEFAULT_FEATURE_MAP = u"""
 (?P<SPECIAL>\\b__([A-Za-z]+)__\\b)
 |
+(?P<CENSORED>\\b\\p{L}+(?:\\*+\\p{L}+)+\\b)
+|
 (?P<TIMEOFDAY>\\b[0-2]?[0-9]:[0-6][0-9](?:\\s*[AaPp][Mm])?\\b)
 |
 (?P<EMOTIC_EAST_LO>\\(?[\\+\\^ˇ\\*\\->~][_\\.][\\+\\^ˇ\\*\\-<~]\\)?)
