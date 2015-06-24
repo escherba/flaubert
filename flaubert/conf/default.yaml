@@ -19,7 +19,7 @@ tokenizer:
     }
     replace_map: {
         # n- and m-dash
-        '\u2013': '--', '\u2014': '---'
+        "\u2013": '--', "\u2014": '---'
     }
     add_abbrev_types: [
         'c.s.i', 'm.i.a', 'd.j', 'p.c', 'st', 'd.c', 'n.y.c', 'l.a', 's.f', 'bros',
