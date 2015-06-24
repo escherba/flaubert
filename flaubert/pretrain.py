@@ -10,7 +10,7 @@ logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=lo
 
 def get_sentences(input_files):
     containers = (chain.from_iterable(read_json_lines(fname)) for fname in input_files)
-    return list(chain(*containers))
+    return chain(*containers)
 
 
 def parse_args(args=None):
@@ -30,7 +30,7 @@ def build_model(input_files, model_output=None, num_workers=1):
         raise ValueError("Invalid value specified num_workers=%d" % num_workers)
 
     sentences = get_sentences(input_files)
-    logging.info("Training word2vec model on %d sentences", len(sentences))
+    logging.info("Training word2vec model...")
 
     # Initialize and train the model (this will take some time)
     logging.info("Training model...")
