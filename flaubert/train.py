@@ -15,6 +15,7 @@ from sklearn.linear_model import LogisticRegression
 from pymaptools.io import PathArgumentParser, GzipFileType, read_json_lines
 from flaubert.preprocess import read_tsv
 from flaubert.pretrain import sentence_iter
+from flaubert.conf import CONFIG
 
 
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
@@ -55,7 +56,7 @@ def getAvgFeatureVecs(wordlist_file, model):
     for idx, review in enumerate(reviews):
         if (idx + 1) % 1000 == 0:
             print("Review %d of %d" % ((idx + 1), num_reviews))
-        reviewFeatureVecs[idx] = makeFeatureVec(review, model, num_features)
+        reviewFeatureVecs[idx] = makeFeatureVec(chain(*review), model, num_features)
     return reviewFeatureVecs
 
 
@@ -209,10 +210,8 @@ def parse_args(args=None):
                         help='(Labeled) training set')
     parser.add_argument('--plot_features', type=str, default=None,
                         help='file to save feature comparison to')
-    parser.add_argument('--sentencelist', type=GzipFileType('r'), default=None,
+    parser.add_argument('--sentences', type=GzipFileType('r'), required=True,
                         help='File containing sentences in JSON format (implies doc2vec)')
-    parser.add_argument('--wordlist', type=GzipFileType('r'), default=None,
-                        help='File containing words in JSON format (implies word2vec)')
     namespace = parser.parse_args(args)
     return namespace
 
@@ -224,12 +223,12 @@ def run(args, model=None):
         model = word2vec.Word2Vec.load(args.model)
 
     # get feature vectors
-    if args.sentencelist:
-        feature_vectors = getDoc2VecVectors(args.sentencelist, model)
-    elif args.wordlist:
-        feature_vectors = getAvgFeatureVecs(args.wordlist, model)
+    if CONFIG['embedding'] == 'doc2vec':
+        feature_vectors = getDoc2VecVectors(args.sentences, model)
+    elif CONFIG['embedding'] == 'word2vec':
+        feature_vectors = getAvgFeatureVecs(args.sentences, model)
     else:
-        raise RuntimeError("Either word list or sentence list must be specified")
+        raise RuntimeError("Invalid config setting embedding=%s" % CONFIG['embedding'])
 
     # get Y labels
     training_set = read_tsv(args.train)
