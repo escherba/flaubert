@@ -237,11 +237,11 @@ class RegexpFeatureTokenizer(object):
             num_stars += modifier
         num_stars *= (10.0 / out_of)
         num_stars = int(round(num_stars))
-        yield u"<%d / %d>" % (num_stars, 10)
+        yield u"<%d/%d>" % (num_stars, 10)
 
     def handle_starrating_x(self, match, *args):
         num_stars = int(round(float(match.group(match.lastindex + 1))))
-        yield u"<%d / %d>" % (num_stars, 10)
+        yield u"<%d/%d>" % (num_stars, 10)
 
     def simple_entity_handler(self, match, *args):
         yield self.groupname_format % RE_STRIP_NOISE(match.group()).upper()
