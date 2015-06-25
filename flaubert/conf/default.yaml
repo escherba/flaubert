@@ -31,7 +31,7 @@ tokenizer:
 
 lemmatizer: "wordnet"   # null or "wordnet"
 stemmer: null           # null or "porter"
-embedding: "doc2vec"    # either doc2vec or word2vec
+embedding: "word2vec"    # either doc2vec or word2vec
 
 word2vec:
     sg: 1               # 1 for skip-gram (default), cbow otherwise
