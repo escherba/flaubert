@@ -21,17 +21,12 @@ logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=lo
 
 
 def makeFeatureVec(words, model, num_features):
-    # Function to average all of the word vectors in a given
-    # paragraph
-    #
+    """
+    average all of the word vectors in a given paragraph
+    """
     # Pre-initialize an empty numpy array (for speed)
     vector = np.zeros((num_features,), dtype="float32")
     nwords = 0
-    # Index2word is a list that contains the names of the words in
-    # the model's vocabulary. Convert it to a set, for speed
-
-    # Loop over each word in the review and, if it is in the model's
-    # vocaublary, add its feature vector to the total
     for word in words:
         try:
             word_vector = model[word]
@@ -45,8 +40,10 @@ def makeFeatureVec(words, model, num_features):
 
 
 def getAvgFeatureVecs(wordlist_file, model):
-    # Given a set of reviews (each one a list of words), calculate
-    # the average feature vector for each one and return a 2D numpy array
+    """
+    Given a set of reviews (each one a list of words), calculate
+    the average feature vector for each one and return a 2D numpy array
+    """
 
     _, num_features = model.syn0.shape
 
