@@ -62,16 +62,18 @@ def build_model(args):
     logging.info("Reading sentences from files: %s (%d workers)", input_files, num_workers)
 
     # Initialize and train the model (this will take some time)
-    if args.doc2vec:
+    if CONFIG['embedding'] == 'doc2vec':
         sentences = list(get_labeled_sentences(input_files))
         logging.info("Training doc2vec model on %d sentences", len(sentences))
         model = doc2vec.Doc2Vec(
             sentences, workers=num_workers, **CONFIG['doc2vec'])
-    else:
+    elif CONFIG['embedding'] == 'word2vec':
         sentences = list(get_sentences(input_files))
         logging.info("Training word2vec model on %d sentences", len(sentences))
         model = word2vec.Word2Vec(
             sentences, workers=num_workers, **CONFIG['word2vec'])
+    else:
+        raise ValueError("Invalid config setting embedding=%s" % CONFIG['embedding'])
 
     return model
 

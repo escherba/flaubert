@@ -120,62 +120,62 @@ class TestFeatureTokens(unittest.TestCase, SetComparisonMixin):
     def test_rating_1(self):
         text = u"which deserves 11 out of 10,"
         tokens = self.tokenize(text)
-        self.assertSetContainsSubset([u'<11 / 10>'], tokens)
+        self.assertSetContainsSubset([u'<11/10>'], tokens)
 
     def test_rating_2(self):
         text = u"I give this film 10 stars out of 10."
         tokens = self.tokenize(text)
-        self.assertSetContainsSubset([u'<10 / 10>'], tokens)
+        self.assertSetContainsSubset([u'<10/10>'], tokens)
 
     def test_rating_3(self):
         text = u"A must-see for fans of Japanese horror.10 out of 10."
         tokens = self.tokenize(text)
-        self.assertSetContainsSubset([u'<10 / 10>'], tokens)
+        self.assertSetContainsSubset([u'<10/10>'], tokens)
 
     def test_rating_4(self):
         text = u"a decent script.<br /><br />3/10"
         tokens = self.tokenize(text)
-        self.assertSetContainsSubset([u'<3 / 10>'], tokens)
+        self.assertSetContainsSubset([u'<3/10>'], tokens)
 
     def test_rating_5(self):
         text = u"give it five stars out of ten"
         tokens = self.tokenize(text)
-        self.assertSetContainsSubset([u'<5 / 10>'], tokens)
+        self.assertSetContainsSubset([u'<5/10>'], tokens)
 
     def test_rating_6(self):
         text = u"give it 3 1/2 stars out of five"
         tokens = self.tokenize(text)
-        self.assertSetContainsSubset([u'<7 / 10>'], tokens)
+        self.assertSetContainsSubset([u'<7/10>'], tokens)
 
     def test_rating_7(self):
         text = u"give it ** 1/2 stars out of four"
         tokens = self.tokenize(text)
-        self.assertSetContainsSubset([u'<6 / 10>'], tokens)
+        self.assertSetContainsSubset([u'<6/10>'], tokens)
 
     def test_rating_8(self):
         text = u"has been done so many times.. 7 of 10"
         tokens = self.tokenize(text)
-        self.assertSetContainsSubset([u'<7 / 10>'], tokens)
+        self.assertSetContainsSubset([u'<7/10>'], tokens)
 
     def test_rating_9(self):
         text = u"has been done so many times.. 8 / 10"
         tokens = self.tokenize(text)
-        self.assertSetContainsSubset([u'<8 / 10>'], tokens)
+        self.assertSetContainsSubset([u'<8/10>'], tokens)
 
     def test_rating_10(self):
         text = u"I give it a 7 star rating"
         tokens = self.tokenize(text)
-        self.assertSetContainsSubset([u'<7 / 10>'], tokens)
+        self.assertSetContainsSubset([u'<7/10>'], tokens)
 
     def test_rating_11(self):
         text = u"Grade: * out of *****"
         tokens = self.tokenize(text)
-        self.assertSetContainsSubset([u'<2 / 10>'], tokens)
+        self.assertSetContainsSubset([u'<2/10>'], tokens)
 
     def test_rating_12(self):
         text = u"Final Judgement: **/****"
         tokens = self.tokenize(text)
-        self.assertSetContainsSubset([u'<5 / 10>'], tokens)
+        self.assertSetContainsSubset([u'<5/10>'], tokens)
 
     def test_grade_1(self):
         text = u"can save this boring, Grade B+ western."
