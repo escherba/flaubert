@@ -14,23 +14,27 @@ def get_sentences(input_files):
 
 
 def sentence_iter(input_files):
-    obj_idx = 0
+    doc_idx = 0
+    allowed_labels = CONFIG['doc2vec_labels']
+    sentence_label = 'sentence' in allowed_labels
+    document_label = 'document' in allowed_labels
     for fname in input_files:
-        for obj in read_json_lines(fname):
-            obj_data = []
-            for sent_idx, sentence in enumerate(obj):
-                labels = [
-                    u'SENT_%d_%d' % (obj_idx, sent_idx),
-                    u'OBJ_%d' % obj_idx
-                ]
-                obj_data.append((sentence, labels))
-            yield obj_data
-            obj_idx += 1
+        for document in read_json_lines(fname):
+            doc_data = []
+            for sent_idx, sentence in enumerate(document):
+                labels = []
+                if sentence_label:
+                    labels.append(u'SENT_%d_%d' % (doc_idx, sent_idx))
+                if document_label:
+                    labels.append(u'DOC_%d' % doc_idx)
+                doc_data.append((sentence, labels))
+            yield doc_data
+            doc_idx += 1
 
 
 def get_labeled_sentences(input_files):
-    for obj_data in sentence_iter(input_files):
-        for sentence, labels in obj_data:
+    for doc_data in sentence_iter(input_files):
+        for sentence, labels in doc_data:
             yield doc2vec.LabeledSentence(sentence, labels=labels)
 
 
