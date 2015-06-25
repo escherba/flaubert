@@ -66,8 +66,8 @@ PARAM_GRIDS = {
         # {'dual': [True], 'penalty':['l2'], 'C': [0.01, 0.033, 0.1, 0.33, 1.0]}
     ],
     'LinearSVC': [
-        {'dual': [False], 'penalty':['l1', 'l2'], 'C': [1.0, 3.3, 10.0, 30.0]},
-        {'dual': [True], 'penalty':['l2'], 'C': [0.1, 1, 10, 100]}
+        {'dual': [False], 'penalty':['l1', 'l2'], 'C': [1, 3.33, 10, 33, 100, 333]},
+        #{'dual': [True], 'penalty':['l2'], 'C': [0.1, 1, 10, 100]}
     ],
     'RandomForestClassifier': {
         "n_estimators": [90],

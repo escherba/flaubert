@@ -31,7 +31,7 @@ nltk: $(NLTK_DIR_DONE)
 pretrain: $(WORD2VEC)
 	@echo "done"
 
-.SECONDARY: $(TSVS)
+.SECONDARY: $(TSVS) $(SENT_TOKENIZER) $(WORDS) $(SENTS) $(WORD2VEC)
 %.tsv: %.tsv.zip
 	unzip -p $< > $@
 
