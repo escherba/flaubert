@@ -1,4 +1,3 @@
-CONFIG = ./flaubert/conf/default.yaml
 NLTK_DIR = nltk_data
 NLTK_DIR_DONE = $(NLTK_DIR)/make.done
 DATA_DIR = data
@@ -37,24 +36,26 @@ pretrain: $(WORD2VEC)
 
 train: $(LABELED_TRAIN).tsv $(LABELED_TRAIN).words.gz $(WORD2VEC)
 	$(PYTHON) -m flaubert.train \
-		--classifier svm --word2vec $(WORD2VEC) \
-		--train $(LABELED_TRAIN).tsv --wordlist $(LABELED_TRAIN).words.gz
-	rm -f $(LABELED_TRAIN).tsv
+		--classifier svm --model $(WORD2VEC) \
+		--train $(LABELED_TRAIN).tsv \
+		--sentencelist $(LABELED_TRAIN).sents.gz
+	#--wordlist $(LABELED_TRAIN).words.gz
 
 $(WORD2VEC): $(LABELED_TRAIN).sents.gz $(UNLABELED_TRAIN).sents.gz
 	@echo "Creating word2vec model at $(WORD2VEC)"
 	python -m flaubert.pretrain \
 		--sentences $^ \
 		--output $@
+	#--doc2vec
 
 $(NLTK_DIR_DONE):
 	$(PYTHON) -m nltk.downloader -d $(NLTK_DIR) wordnet stopwords punkt maxent_treebank_pos_tagger
 	touch $@
 
-%.sents.gz: %.tsv | $(CONFIG) $(NLTK_DIR_DONE) $(SENT_TOKENIZER)
+%.sents.gz: %.tsv | $(NLTK_DIR_DONE) $(SENT_TOKENIZER)
 	$(PYTHON) -m flaubert.preprocess --input $*.tsv --output $@ tokenize --sentences
 
-%.words.gz: %.tsv | $(CONFIG) $(NLTK_DIR_DONE)
+%.words.gz: %.tsv | $(NLTK_DIR_DONE)
 	$(PYTHON) -m flaubert.preprocess --input $*.tsv --output $@ tokenize
 
 $(SENT_TOKENIZER): $(LABELED_TRAIN).tsv $(UNLABELED_TRAIN).tsv
