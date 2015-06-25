@@ -33,7 +33,9 @@ lemmatizer: "wordnet"  # null or "wordnet"
 stemmer: null   # null or "porter"
 
 word2vec:
+    sg: 1           # 1 for skip-gram (default), cbow otherwise
     size: 400       # Number of features
     min_count: 40   # Minimum word count
     window: 20      # max distance between the current and predicted word
     sample: 0.001   # Downsample setting for frequent words
+    seed: 1337      # for random number generator
