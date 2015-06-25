@@ -1,6 +1,7 @@
 import unittest
 from tests import count_prefix
 from functools import partial
+from collections import Counter
 from flaubert.preprocess import TOKENIZER
 from flaubert.tokenize import RegexpFeatureTokenizer
 from pymaptools.utils import SetComparisonMixin
@@ -21,10 +22,16 @@ class TestFeatureTokens(unittest.TestCase, SetComparisonMixin):
         preprocessed = self.tokenizer.preprocess(text)
         self.assertEqual(u'wow --- such -- doge', preprocessed)
 
+    def test_dashes(self):
+        text = u"wow \u2014 such \u2013 doge -- and --- are dashes"
+        counts = Counter(self.tokenize(text))
+        self.assertEqual(2, counts[u'--'])
+        self.assertEqual(2, counts[u'---'])
+
     def test_censored(self):
         text = u"she's a b*tch in a f***d world"
         tokens = self.tokenize(text)
-        self.assertSetContainsSubset([u'b*tch', u'f***d'], tokens)
+        self.assertSetContainsSubset([u'she', u"'s", u'b*tch', u'f***d'], tokens)
 
     def test_sentence_split_ellipsis(self):
         """

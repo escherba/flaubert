@@ -12,6 +12,7 @@ SENT_TOKENIZER = $(DATA_DIR)/sentence_tokenizer.pickle
 
 export NLTK_DATA=$(NLTK_DIR)
 
+TSVS  := $(ALL_DATA:.tsv.zip=.tsv)
 SENTS := $(ALL_DATA:.tsv.zip=.sents.gz)
 WORDS := $(ALL_DATA:.tsv.zip=.words.gz)
 
@@ -30,6 +31,7 @@ nltk: $(NLTK_DIR_DONE)
 pretrain: $(WORD2VEC)
 	@echo "done"
 
+.SECONDARY: $(TSVS) $(SENT_TOKENIZER) $(WORDS) $(SENTS) $(WORD2VEC)
 %.tsv: %.tsv.zip
 	unzip -p $< > $@
 

@@ -8,9 +8,9 @@ from flaubert.conf import CONFIG
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
 
-def get_sentences(input_files):
+def get_sentence_iter(input_files):
     containers = (chain.from_iterable(read_json_lines(fname)) for fname in input_files)
-    return list(chain(*containers))
+    return chain(*containers)
 
 
 def parse_args(args=None):
@@ -29,7 +29,9 @@ def build_model(input_files, model_output=None, num_workers=1):
     if num_workers is None or num_workers < 0:
         raise ValueError("Invalid value specified num_workers=%d" % num_workers)
 
-    sentences = get_sentences(input_files)
+    # Note: training gensim's word2vec directly on an iterator causes a drop in
+    # accuracy, which should be investigated and probably filed as an issue.
+    sentences = list(get_sentence_iter(input_files))
     logging.info("Training word2vec model on %d sentences", len(sentences))
 
     # Initialize and train the model (this will take some time)

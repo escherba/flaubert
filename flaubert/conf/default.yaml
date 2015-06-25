@@ -19,7 +19,7 @@ tokenizer:
     }
     replace_map: {
         # n- and m-dash
-        '\u2013': '--', '\u2014': '---'
+        "\u2013": '--', "\u2014": '---'
     }
     add_abbrev_types: [
         'c.s.i', 'm.i.a', 'd.j', 'p.c', 'st', 'd.c', 'n.y.c', 'l.a', 's.f', 'bros',
@@ -33,7 +33,9 @@ lemmatizer: "wordnet"  # null or "wordnet"
 stemmer: null   # null or "porter"
 
 word2vec:
-    size: 300       # Number of features
+    sg: 1           # 1 for skip-gram (default), cbow otherwise
+    size: 400       # Number of features
     min_count: 40   # Minimum word count
-    window: 10      # Context window size
+    window: 20      # max distance between the current and predicted word
     sample: 0.001   # Downsample setting for frequent words
+    seed: 1337      # for random number generator
