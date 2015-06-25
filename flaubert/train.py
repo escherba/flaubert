@@ -1,6 +1,8 @@
 from __future__ import print_function
 
 import numpy as np
+import logging
+from itertools import chain
 from gensim.models import word2vec
 from sklearn.cross_validation import train_test_split
 from sklearn.grid_search import GridSearchCV
@@ -12,6 +14,10 @@ from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier, \
 from sklearn.linear_model import LogisticRegression
 from pymaptools.io import PathArgumentParser, GzipFileType, read_json_lines
 from flaubert.preprocess import read_tsv
+from flaubert.pretrain import sentence_iter
+
+
+logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
 
 def makeFeatureVec(words, model, num_features):
@@ -23,34 +29,61 @@ def makeFeatureVec(words, model, num_features):
     nwords = 0
     # Index2word is a list that contains the names of the words in
     # the model's vocabulary. Convert it to a set, for speed
-    index2word_set = set(model.index2word)
+
     # Loop over each word in the review and, if it is in the model's
     # vocaublary, add its feature vector to the total
     for word in words:
-        if word in index2word_set:
-            nwords = nwords + 1
-            vector = np.add(vector, model[word])
+        try:
+            word_vector = model[word]
+        except KeyError:
+            continue
+        vector = np.add(vector, word_vector)
+        nwords = nwords + 1
     # Divide the result by the number of words to get the average
     vector = np.divide(vector, float(nwords))
     return vector
 
 
-def getAvgFeatureVecs(reviews, model, num_features):
+def getAvgFeatureVecs(wordlist_file, model):
     # Given a set of reviews (each one a list of words), calculate
     # the average feature vector for each one and return a 2D numpy array
 
-    counter = 0
+    _, num_features = model.syn0.shape
+
+    reviews = list(read_json_lines(wordlist_file))
+    num_reviews = len(reviews)
+
     # Preallocate a 2D numpy array, for speed
-    reviewFeatureVecs = np.zeros((len(reviews), num_features), dtype="float32")
-    # Loop through the reviews
-    for review in reviews:
-        # Print a status message every 1000th review
-        if counter % 1000 == 0:
-            print("Review %d of %d" % (counter, len(reviews)))
-        # Call the function (defined above) that makes average feature vectors
-        reviewFeatureVecs[counter] = makeFeatureVec(review, model, num_features)
-        # Increment the counter
-        counter = counter + 1
+    reviewFeatureVecs = np.zeros((num_reviews, num_features), dtype="float32")
+    for idx, review in enumerate(reviews):
+        if (idx + 1) % 1000 == 0:
+            print("Review %d of %d" % ((idx + 1), num_reviews))
+        reviewFeatureVecs[idx] = makeFeatureVec(review, model, num_features)
+    return reviewFeatureVecs
+
+
+def getDoc2VecVectors(sentence_file, model):
+
+    _, num_features = model.syn0.shape
+
+    review_sent_labels = list(sentence_iter([sentence_file]))
+    num_reviews = len(review_sent_labels)
+
+    # Preallocate a 2D numpy array, for speed
+    reviewFeatureVecs = np.zeros((num_reviews, num_features), dtype="float32")
+
+    for idx, labels in enumerate(review_sent_labels):
+        if (idx + 1) % 1000 == 0:
+            print("Review %d of %d" % ((idx + 1), num_reviews))
+        nvecs = 0
+        vector = np.zeros((num_features,), dtype="float32")
+        for sentence, this_labels in labels:
+            this_vector = makeFeatureVec(chain(sentence, this_labels), model, num_features)
+            vector = np.add(vector, this_vector)
+            nvecs += 1
+        vector = np.divide(vector, float(nvecs))
+        reviewFeatureVecs[idx] = vector
+
     return reviewFeatureVecs
 
 
@@ -62,33 +95,35 @@ PARAM_GRIDS = {
         # {'dual': [True], 'penalty':['l2'], 'C': [0.01, 0.033, 0.1, 0.33, 1.0]}
     ],
     'LinearSVC': [
-        {'dual': [False], 'penalty':['l1', 'l2'], 'C': [0.33, 1.0, 3.3, 10.0]},
+        {'dual': [False], 'penalty':['l1', 'l2'], 'C': [1, 3.33, 10, 33, 100, 333]},
         # {'dual': [True], 'penalty':['l2'], 'C': [0.1, 1, 10, 100]}
     ],
     'RandomForestClassifier': {
-        "n_estimators": [30, 60, 120],
-        "max_depth": [8, 16],
-        "max_features": [100, None],
-        "min_samples_split": [2, 20],
-        "min_samples_leaf": [1, 10],
+        "n_estimators": [90],
+        "max_depth": [32, 64],
+        "max_features": [50, 75, 100],
+        "min_samples_split": [2],
+        "min_samples_leaf": [2, 3],
         "bootstrap": [False],
-        "criterion": ["gini", "entropy"]
+        "criterion": ["gini"]
     },
     'AdaBoost': {
-        'n_estimators': [30, 60],
+        'n_estimators': [60],
+        'learning_rate': [0.8],
         'algorithm': ['SAMME.R']
     }
 }
 
+GRIDSEARHCV_KWARGS = dict(cv=5, scoring=SCORING, n_jobs=-1, verbose=10)
+DECISION_TREE_PARAMS = dict(
+    criterion="gini", max_depth=2, min_samples_split=2, min_samples_leaf=2
+)
+
 CLASSIFIER_GRIDS = {
-    'lr': [[LogisticRegression(), PARAM_GRIDS['LogisticRegression']],
-           dict(cv=5, scoring=SCORING, n_jobs=-1)],
-    'svm': [[LinearSVC(), PARAM_GRIDS['LinearSVC']],
-            dict(cv=5, scoring=SCORING, n_jobs=-1)],
-    'random_forest': [[RandomForestClassifier(), PARAM_GRIDS['RandomForestClassifier']],
-                      dict(cv=5, scoring=SCORING, n_jobs=-1)],
-    'adaboost': [[AdaBoostClassifier(DecisionTreeClassifier(max_depth=2)), PARAM_GRIDS['AdaBoost']],
-                 dict(cv=5, scoring=SCORING, n_jobs=-1)]
+    'lr': [[LogisticRegression(), PARAM_GRIDS['LogisticRegression']], GRIDSEARHCV_KWARGS],
+    'svm': [[LinearSVC(), PARAM_GRIDS['LinearSVC']], GRIDSEARHCV_KWARGS],
+    'random_forest': [[RandomForestClassifier(), PARAM_GRIDS['RandomForestClassifier']], GRIDSEARHCV_KWARGS],
+    'adaboost': [[AdaBoostClassifier(DecisionTreeClassifier(**DECISION_TREE_PARAMS)), PARAM_GRIDS['AdaBoost']], GRIDSEARHCV_KWARGS]
 }
 
 
@@ -153,8 +188,8 @@ def feat_imp(args, y, X, num_features=25):
     # Print the feature ranking
     print("Feature ranking:")
 
-    for f in xrange(num_features):
-        print("%d. feature %d (%f)" % (f + 1, indices[f], importances[indices[f]]))
+    for feat in xrange(num_features):
+        print("%d. feature %d (%f)" % (feat + 1, indices[feat], importances[indices[feat]]))
 
     # Plot the feature importances of the clf
     plt.figure()
@@ -171,29 +206,43 @@ def parse_args(args=None):
     parser.add_argument('--classifier', type=str, default='svm',
                         choices=CLASSIFIER_GRIDS.keys(),
                         help='Which classifier to use')
-    parser.add_argument('--word2vec', type=str, metavar='FILE', required=True,
-                        help='Input word2vec model')
+    parser.add_argument('--model', type=str, metavar='FILE', default=None,
+                        help='Input word2vec (or doc2vec) model')
     parser.add_argument('--train', type=str, metavar='FILE', required=True,
                         help='(Labeled) training set')
     parser.add_argument('--plot_features', type=str, default=None,
                         help='file to save feature comparison to')
-    parser.add_argument('--wordlist', type=GzipFileType('r'), required=True,
-                        help='File containing words in JSON format')
+    parser.add_argument('--sentencelist', type=GzipFileType('r'), default=None,
+                        help='File containing sentences in JSON format (implies doc2vec)')
+    parser.add_argument('--wordlist', type=GzipFileType('r'), default=None,
+                        help='File containing words in JSON format (implies word2vec)')
     namespace = parser.parse_args(args)
     return namespace
 
 
 def run(args, model=None):
+
+    # load model
     if model is None:
-        model = word2vec.Word2Vec.load(args.word2vec)
-    _, num_features = model.syn0.shape
-    clean_train_reviews = list(read_json_lines(args.wordlist))
-    training_set = read_tsv(args.train)
-    feature_vectors = getAvgFeatureVecs(clean_train_reviews, model, num_features)
-    if args.plot_features:
-        feat_imp(args, training_set["sentiment"], feature_vectors)
+        model = word2vec.Word2Vec.load(args.model)
+
+    # get feature vectors
+    if args.sentencelist:
+        feature_vectors = getDoc2VecVectors(args.sentencelist, model)
+    elif args.wordlist:
+        feature_vectors = getAvgFeatureVecs(args.wordlist, model)
     else:
-        train_model(args, training_set["sentiment"], feature_vectors)
+        raise RuntimeError("Either word list or sentence list must be specified")
+
+    # get Y labels
+    training_set = read_tsv(args.train)
+    y_labels = training_set["sentiment"]
+
+    # train a classifier
+    if args.plot_features:
+        feat_imp(args, y_labels, feature_vectors)
+    else:
+        train_model(args, y_labels, feature_vectors)
 
 
 if __name__ == "__main__":

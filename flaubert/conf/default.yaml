@@ -1,11 +1,12 @@
 tokenizer:
     unicode_form: "NFKC"
     nltk_stop_words: "english"
-    nltk_sentence_tokenizer: "tokenizers/punkt/english.pickle"
+    #sentence_tokenizer: ['nltk_data', 'tokenizers/punkt/english.pickle']
+    sentence_tokenizer: ['data', 'sentence_tokenizer.pickle']
     max_char_repeats: 3
     lru_cache_size: 50000   # cache size (for wordnet lemmatizer only at the moment)
     html_renderer: "default"  # Either null or "default" or "beautifulsoup"
-    replace_map: {
+    translate_map_inv: {
         # normalize hashtags and mentions
         "@": "＠",
         '#': "＃",
@@ -15,15 +16,34 @@ tokenizer:
         '"': "\u201c\u201d\u201e\u201f\u275d\u275e",
         # multiplication sign
         'x': "\u00d7",
-        # map non-breaking space to regular space
-        ' ': "\xa0"
     }
+    replace_map: {
+        # n- and m-dash
+        "\u2013": '--', "\u2014": '---'
+    }
+    add_abbrev_types: [
+        'c.s.i', 'm.i.a', 'd.j', 'p.c', 'st', 'd.c', 'n.y.c', 'l.a', 's.f', 'bros',
+        'v','co', 'u.s', 'dr', 'vs', 'jr', 'sr', 'ms', 'mr', 'mrs', 'prof', 'inc',
+        'pron', 'col', 'lt', 'gen', 'sgt']
+    del_sent_starters: [
+        'seuss', 'strangelove', 'jekyll', 'moreau', 'hackenstein', 'blandings',
+        'atoz', 'john']   # commonly prefixed with Dr. or St.
 
 lemmatizer: "wordnet"  # null or "wordnet"
 stemmer: null   # null or "porter"
 
 word2vec:
-    size: 300       # Number of features
+    sg: 1           # 1 for skip-gram (default), cbow otherwise
+    size: 400       # Number of features
     min_count: 40   # Minimum word count
-    window: 10      # Context window size
+    window: 20      # max distance between the current and predicted word
     sample: 0.001   # Downsample setting for frequent words
+    seed: 1337      # for random number generator
+
+doc2vec:
+    dm: 1           # 1 for skip-gram (default), cbow otherwise
+    size: 400       # Number of features
+    min_count: 10   # Minimum word count
+    window: 20      # max distance between the current and predicted word
+    sample: 0.001   # Downsample setting for frequent words
+    seed: 1337      # for random number generator

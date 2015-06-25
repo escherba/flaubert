@@ -1,6 +1,7 @@
 import unittest
 from tests import count_prefix
 from functools import partial
+from collections import Counter
 from flaubert.preprocess import TOKENIZER
 from flaubert.tokenize import RegexpFeatureTokenizer
 from pymaptools.utils import SetComparisonMixin
@@ -11,9 +12,26 @@ class TestFeatureTokens(unittest.TestCase, SetComparisonMixin):
     maxDiff = 2000
 
     def setUp(self):
+        self.tokenizer = TOKENIZER
         self.tokenize = partial(TOKENIZER.tokenize, remove_stopwords=False)
         self.sentence_tokenize = TOKENIZER.sentence_tokenize
         self.base_tokenizer = RegexpFeatureTokenizer(debug=True)
+
+    def test_preprocess(self):
+        text = u"wow \u2014 such \u2013 doge"
+        preprocessed = self.tokenizer.preprocess(text)
+        self.assertEqual(u'wow --- such -- doge', preprocessed)
+
+    def test_dashes(self):
+        text = u"wow \u2014 such \u2013 doge -- and --- are dashes"
+        counts = Counter(self.tokenize(text))
+        self.assertEqual(2, counts[u'--'])
+        self.assertEqual(2, counts[u'---'])
+
+    def test_censored(self):
+        text = u"she's a b*tch in a f***d world"
+        tokens = self.tokenize(text)
+        self.assertSetContainsSubset([u'she', u"'s", u'b*tch', u'f***d'], tokens)
 
     def test_sentence_split_ellipsis(self):
         """
@@ -153,6 +171,11 @@ class TestFeatureTokens(unittest.TestCase, SetComparisonMixin):
         text = u"Grade: * out of *****"
         tokens = self.tokenize(text)
         self.assertSetContainsSubset([u'<2 / 10>'], tokens)
+
+    def test_rating_12(self):
+        text = u"Final Judgement: **/****"
+        tokens = self.tokenize(text)
+        self.assertSetContainsSubset([u'<5 / 10>'], tokens)
 
     def test_grade_1(self):
         text = u"can save this boring, Grade B+ western."

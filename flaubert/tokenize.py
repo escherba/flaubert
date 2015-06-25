@@ -22,6 +22,11 @@ NUM2DEC = {
     u'ten': 10,
 }
 
+# contractions like can't, I'd, he'll, I'm, I've
+EN_APO_CONTRACTIONS = frozenset([
+    u'll', u'd', u're', u't', u'm', u've', u's'
+])
+
 
 def count_stars(num_stars):
     dec_num_stars = NUM2DEC.get(num_stars)
@@ -34,6 +39,8 @@ def count_stars(num_stars):
 
 DEFAULT_FEATURE_MAP = u"""
 (?P<SPECIAL>\\b__([A-Za-z]+)__\\b)
+|
+(?P<CENSORED>\\b\\p{L}+(?:\\*+\\p{L}+)+\\b)
 |
 (?P<TIMEOFDAY>\\b[0-2]?[0-9]:[0-6][0-9](?:\\s*[AaPp][Mm])?\\b)
 |
@@ -52,6 +59,8 @@ DEFAULT_FEATURE_MAP = u"""
 (?P<EMOTIC_RUSS_SAD>\\({2,})
 |
 (?P<EMOTIC_HEART>(?<![0-9])\\<(\\/?)3+\\b)
+|
+(?P<CONTRACTION>\\b([a-zA-Z]+)'([a-zA-Z]{1,2})\\b)     # you're, it's, it'd, he'll
 |
 (?P<STARRATING>([0-9]{1,2}|(?:\\*\\s?)+|%(number)s)(\\.[0-9]|[\\s-]*[1-9]\\s?\\/\\s?[1-9])?\\s*(?:stars?(?:\\s+rating)?)?\\s*(?:\\/\\s*|\\(?(?:out\\s+)?of\\s+)(4|5|10|four|five|ten|\\*+)(?:\\s+stars)?)
 |
@@ -72,6 +81,8 @@ DEFAULT_FEATURE_MAP = u"""
 (?P<ASCIIARROW_RIGHT>([\\-=]?\\>{2,}|[\\-=]+\\>))        # -->, ==>, >>, >>>
 |
 (?P<ASCIIARROW_LEFT>(\\<{2,}[\\-=]?|\\<[\\-=]+))         # <<<, <<, <==, <--
+|
+(?P<MNDASH>(?:\\-{2,3})|\\u2013|\\u2014)
 |
 (?P<COLON>:+(?!\\/\\/))                                  # colon (unless a part of URI scheme)
 |
@@ -167,6 +178,17 @@ class RegexpFeatureTokenizer(object):
         tag_name = match.group(match.lastindex + 1).upper()
         yield self.groupname_format % tag_name
 
+    def handle_contraction(self, match, *args):
+        """Words with a single apostrophe in them
+        """
+        first = match.group(match.lastindex + 1)
+        second = match.group(match.lastindex + 2)
+        yield first
+        if second in EN_APO_CONTRACTIONS:
+            yield u"'" + second
+        else:
+            yield second
+
     def handle_emotic_west_left(self, match, *args):
         mouth = match.group(match.lastindex + 1)[0]
         group_name = match.lastgroup
@@ -215,11 +237,11 @@ class RegexpFeatureTokenizer(object):
             num_stars += modifier
         num_stars *= (10.0 / out_of)
         num_stars = int(round(num_stars))
-        yield u"<%d / %d>" % (num_stars, 10)
+        yield u"<%d/%d>" % (num_stars, 10)
 
     def handle_starrating_x(self, match, *args):
         num_stars = int(round(float(match.group(match.lastindex + 1))))
-        yield u"<%d / %d>" % (num_stars, 10)
+        yield u"<%d/%d>" % (num_stars, 10)
 
     def simple_entity_handler(self, match, *args):
         yield self.groupname_format % RE_STRIP_NOISE(match.group()).upper()
@@ -239,11 +261,24 @@ class RegexpFeatureTokenizer(object):
     handle_grade_pre = grade_handler
     handle_grade_post = grade_handler
 
+    def handle_mndash(self, match, *args):
+        extracted = match.group()
+        len_extracted = len(extracted)
+        if len_extracted == 2:
+            yield u'--'
+        elif len_extracted == 3:
+            yield u'---'
+        elif extracted == u'\u2013':
+            yield u'--'
+        elif extracted == u'\u2014':
+            yield u'---'
+
     def handle_ellipsis(self, match, *args):
-        if match.group() == u"\u2026":
+        extracted = match.group()
+        if extracted == u"\u2026":
             yield u"..."
         else:
-            yield match.group()
+            yield RE_STRIP_NOISE(extracted)
 
     def __call__(self, text):
         return self.tokenize(text)
