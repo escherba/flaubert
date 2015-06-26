@@ -3,6 +3,7 @@ from __future__ import print_function
 import numpy as np
 import logging
 from itertools import chain
+from collections import Counter
 from gensim.models import word2vec
 from sklearn.cross_validation import train_test_split
 from sklearn.grid_search import GridSearchCV
@@ -11,11 +12,13 @@ from sklearn.svm import LinearSVC
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier, \
     ExtraTreesClassifier
+from sklearn.feature_extraction import DictVectorizer
 from sklearn.linear_model import LogisticRegression
 from pymaptools.io import PathArgumentParser, GzipFileType, read_json_lines
 from flaubert.preprocess import read_tsv
 from flaubert.pretrain import sentence_iter
 from flaubert.conf import CONFIG
+from scipy.sparse import csr
 
 
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
@@ -94,7 +97,7 @@ PARAM_GRIDS = {
     ],
     'LinearSVC': [
         {'dual': [False], 'penalty':['l1', 'l2'], 'C': [1, 3.33, 10, 33, 100, 333]},
-        # {'dual': [True], 'penalty':['l2'], 'C': [0.1, 1, 10, 100]}
+        {'dual': [True], 'penalty':['l2'], 'C': [0.1, 1, 10, 100]}
     ],
     'RandomForestClassifier': {
         "n_estimators": [90],
@@ -132,12 +135,13 @@ def train_model(args, y, X):
     # X and y arrays must have matching numbers of rows
     assert X.shape[0] == y.shape[0]
 
-    # drop rows that contain any NaNs (missing values)
-    X_nans = np.isnan(X).any(axis=1)
-    y_nans = np.asarray(np.isnan(y))
-    nans = X_nans | y_nans
-    y = y[~nans]
-    X = X[~nans]
+    # if dense, drop rows that contain any NaNs (missing values)
+    if not isinstance(X, csr.csr_matrix):
+        X_nans = np.isnan(X).any(axis=1)
+        y_nans = np.asarray(np.isnan(y))
+        nans = X_nans | y_nans
+        y = y[~nans]
+        X = X[~nans]
 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=0)
@@ -204,7 +208,7 @@ def parse_args(args=None):
     parser.add_argument('--classifier', type=str, default='svm',
                         choices=CLASSIFIER_GRIDS.keys(),
                         help='Which classifier to use')
-    parser.add_argument('--model', type=str, metavar='FILE', default=None,
+    parser.add_argument('--embedding', type=str, metavar='FILE', default=None,
                         help='Input word2vec (or doc2vec) model')
     parser.add_argument('--train', type=str, metavar='FILE', required=True,
                         help='(Labeled) training set')
@@ -216,19 +220,39 @@ def parse_args(args=None):
     return namespace
 
 
-def run(args, model=None):
+def get_embedding_feats(args, embedding=None):
 
-    # load model
-    if model is None:
-        model = word2vec.Word2Vec.load(args.model)
+    # load embedding
+    if embedding is None and args.embedding:
+        embedding = word2vec.Word2Vec.load(args.embedding)
 
     # get feature vectors
     if CONFIG['embedding'] == 'doc2vec':
-        feature_vectors = getDoc2VecVectors(args.sentences, model)
+        feature_vectors = getDoc2VecVectors(args.sentences, embedding)
     elif CONFIG['embedding'] == 'word2vec':
-        feature_vectors = getAvgFeatureVecs(args.sentences, model)
+        feature_vectors = getAvgFeatureVecs(args.sentences, embedding)
     else:
         raise RuntimeError("Invalid config setting embedding=%s" % CONFIG['embedding'])
+
+    return feature_vectors
+
+
+def get_bow_feats(args):
+    data = []
+    for doc in read_json_lines(args.sentences):
+        data.append(Counter(chain(*doc)))
+    vectorizer = DictVectorizer()
+    train_data_features = vectorizer.fit_transform(data)
+    return train_data_features
+
+
+def run(args):
+
+    # load embedding
+    if args.embedding:
+        feature_vectors = get_embedding_feats(args)
+    else:
+        feature_vectors = get_bow_feats(args)
 
     # get Y labels
     training_set = read_tsv(args.train)
