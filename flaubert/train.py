@@ -44,7 +44,7 @@ def makeFeatureVec(words, model, num_features):
     return vector
 
 
-def getAvgFeatureVecs(wordlist_file, model):
+def get_word2vec_features(docs_file, model):
     """
     Given a set of reviews (each one a list of words), calculate
     the average feature vector for each one and return a 2D numpy array
@@ -52,27 +52,27 @@ def getAvgFeatureVecs(wordlist_file, model):
 
     _, num_features = model.syn0.shape
 
-    reviews = list(read_json_lines(wordlist_file))
+    reviews = list(read_json_lines(docs_file))
     num_reviews = len(reviews)
 
     # Preallocate a 2D numpy array, for speed
-    reviewFeatureVecs = np.zeros((num_reviews, num_features), dtype="float32")
+    result = np.zeros((num_reviews, num_features), dtype="float32")
     for idx, review in enumerate(reviews):
         if (idx + 1) % 1000 == 0:
             print("Review %d of %d" % ((idx + 1), num_reviews))
-        reviewFeatureVecs[idx] = makeFeatureVec(chain(*review), model, num_features)
-    return reviewFeatureVecs
+        result[idx] = makeFeatureVec(chain(*review), model, num_features)
+    return result
 
 
-def getDoc2VecVectors(sentence_file, model):
+def get_doc2vec_features(docs_file, model):
 
     _, num_features = model.syn0.shape
 
-    review_sent_labels = list(sentence_iter([sentence_file]))
+    review_sent_labels = list(sentence_iter([docs_file]))
     num_reviews = len(review_sent_labels)
 
     # Preallocate a 2D numpy array, for speed
-    reviewFeatureVecs = np.zeros((num_reviews, num_features), dtype="float32")
+    result = np.zeros((num_reviews, num_features), dtype="float32")
 
     for idx, labels in enumerate(review_sent_labels):
         if (idx + 1) % 1000 == 0:
@@ -84,9 +84,23 @@ def getDoc2VecVectors(sentence_file, model):
             vector = np.add(vector, this_vector)
             nvecs += 1
         vector = np.divide(vector, float(nvecs))
-        reviewFeatureVecs[idx] = vector
+        result[idx] = vector
 
-    return reviewFeatureVecs
+    return result
+
+
+def bow_iter(docs_file):
+    return (Counter(chain(*doc)) for doc in read_json_lines(docs_file))
+
+
+def get_bow_features(args):
+    # TODO: replace this with a Pipeline
+    data = list(bow_iter(args.sentences))
+    vectorizer = DictVectorizer()
+    train_data_features = vectorizer.fit_transform(data)
+    transformer = TfidfTransformer()
+    train_data_features = transformer.fit_transform(train_data_features)
+    return train_data_features
 
 
 SCORING = 'f1'
@@ -129,6 +143,15 @@ CLASSIFIER_GRIDS = {
 }
 
 
+def drop_nans(X, y):
+    X_nans = np.isnan(X).any(axis=1)
+    y_nans = np.asarray(np.isnan(y))
+    nans = X_nans | y_nans
+    y = y[~nans]
+    X = X[~nans]
+    return X, y
+
+
 def train_model(args, y, X):
     # TODO: use Hyperopt for hyperparameter search
     # Split the dataset
@@ -138,11 +161,7 @@ def train_model(args, y, X):
 
     # if dense, drop rows that contain any NaNs (missing values)
     if not isinstance(X, csr.csr_matrix):
-        X_nans = np.isnan(X).any(axis=1)
-        y_nans = np.asarray(np.isnan(y))
-        nans = X_nans | y_nans
-        y = y[~nans]
-        X = X[~nans]
+        X, y = drop_nans(X, y)
 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=0)
@@ -221,7 +240,10 @@ def parse_args(args=None):
     return namespace
 
 
-def get_embedding_feats(args, embedding=None):
+def get_features(args, embedding=None):
+
+    if not args.embedding:
+        return get_bow_features(args)
 
     # load embedding
     if embedding is None and args.embedding:
@@ -229,33 +251,19 @@ def get_embedding_feats(args, embedding=None):
 
     # get feature vectors
     if CONFIG['embedding'] == 'doc2vec':
-        feature_vectors = getDoc2VecVectors(args.sentences, embedding)
+        feature_vectors = get_doc2vec_features(args.sentences, embedding)
     elif CONFIG['embedding'] == 'word2vec':
-        feature_vectors = getAvgFeatureVecs(args.sentences, embedding)
+        feature_vectors = get_word2vec_features(args.sentences, embedding)
     else:
         raise RuntimeError("Invalid config setting embedding=%s" % CONFIG['embedding'])
 
     return feature_vectors
 
 
-def get_bow_feats(args):
-    data = []
-    for doc in read_json_lines(args.sentences):
-        data.append(Counter(chain(*doc)))
-    vectorizer = DictVectorizer()
-    train_data_features = vectorizer.fit_transform(data)
-    transformer = TfidfTransformer()
-    train_data_features = transformer.fit_transform(train_data_features)
-    return train_data_features
-
-
 def run(args):
 
     # load embedding
-    if args.embedding:
-        feature_vectors = get_embedding_feats(args)
-    else:
-        feature_vectors = get_bow_feats(args)
+    feature_vectors = get_features(args)
 
     # get Y labels
     training_set = read_tsv(args.train)

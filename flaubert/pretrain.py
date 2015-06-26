@@ -15,7 +15,7 @@ def get_sentences(input_files):
 
 def sentence_iter(input_files):
     doc_idx = 0
-    allowed_labels = CONFIG['doc2vec_labels']
+    allowed_labels = CONFIG[__name__]['doc2vec_labels']
     sentence_label = 'sentence' in allowed_labels
     document_label = 'document' in allowed_labels
     for fname in input_files:
@@ -66,18 +66,19 @@ def build_model(args):
     logging.info("Reading sentences from files: %s (%d workers)", input_files, num_workers)
 
     # Initialize and train the model (this will take some time)
-    if CONFIG['embedding'] == 'doc2vec':
+    embedding_type = CONFIG[__name__]['embedding']
+    if embedding_type == 'doc2vec':
         sentences = list(get_labeled_sentences(input_files))
         logging.info("Training doc2vec model on %d sentences", len(sentences))
         model = doc2vec.Doc2Vec(
             sentences, workers=num_workers, **CONFIG['doc2vec'])
-    elif CONFIG['embedding'] == 'word2vec':
+    elif embedding_type == 'word2vec':
         sentences = list(get_sentences(input_files))
         logging.info("Training word2vec model on %d sentences", len(sentences))
         model = word2vec.Word2Vec(
             sentences, workers=num_workers, **CONFIG['word2vec'])
     else:
-        raise ValueError("Invalid config setting embedding=%s" % CONFIG['embedding'])
+        raise ValueError("Invalid config setting embedding=%s" % embedding_type)
 
     return model
 

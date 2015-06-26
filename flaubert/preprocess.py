@@ -413,17 +413,19 @@ def get_field_iter(field, datasets, chunksize=1000):
                 yield review
 
 
-REGISTRY = {
-    None: None,
-    'wordnet': wordnet.WordNetLemmatizer(),
-    'porter': PorterStemmer()
-}
+def registry(key):
+    if key is None:
+        return None
+    elif key == 'wordnet':
+        return wordnet.WordNetLemmatizer()
+    elif key == 'porter':
+        return PorterStemmer()
 
 
 def tokenizer_builder():
     return SimpleSentenceTokenizer(
-        lemmatizer=REGISTRY[CONFIG['lemmatizer']],
-        stemmer=REGISTRY[CONFIG['stemmer']],
+        lemmatizer=registry(CONFIG[__name__]['lemmatizer']),
+        stemmer=registry(CONFIG[__name__]['stemmer']),
         url_parser=URLParser(),
         **CONFIG['tokenizer'])
 
