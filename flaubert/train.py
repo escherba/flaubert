@@ -13,6 +13,7 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier, \
     ExtraTreesClassifier
 from sklearn.feature_extraction import DictVectorizer
+from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.linear_model import LogisticRegression
 from pymaptools.io import PathArgumentParser, GzipFileType, read_json_lines
 from flaubert.preprocess import read_tsv
@@ -243,6 +244,8 @@ def get_bow_feats(args):
         data.append(Counter(chain(*doc)))
     vectorizer = DictVectorizer()
     train_data_features = vectorizer.fit_transform(data)
+    transformer = TfidfTransformer()
+    train_data_features = transformer.fit_transform(train_data_features)
     return train_data_features
 
 
