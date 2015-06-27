@@ -414,6 +414,9 @@ def get_field_iter(field, datasets, chunksize=1000):
 
 
 def registry(key):
+    """
+    retrieves objects given keys from config
+    """
     if key is None:
         return None
     elif key == 'wordnet':
@@ -424,8 +427,8 @@ def registry(key):
 
 def tokenizer_builder():
     return SimpleSentenceTokenizer(
-        lemmatizer=registry(CONFIG[__name__]['lemmatizer']),
-        stemmer=registry(CONFIG[__name__]['stemmer']),
+        lemmatizer=registry(CONFIG['preprocess']['lemmatizer']),
+        stemmer=registry(CONFIG['preprocess']['stemmer']),
         url_parser=URLParser(),
         **CONFIG['tokenizer'])
 

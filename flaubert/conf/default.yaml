@@ -29,16 +29,16 @@ tokenizer:
         'seuss', 'strangelove', 'jekyll', 'moreau', 'hackenstein', 'blandings',
         'atoz', 'john']   # commonly prefixed with Dr. or St.
 
-flaubert.preprocess:
+preprocess:
     lemmatizer: "wordnet"   # null or "wordnet"
     stemmer: null           # null or "porter"
 
-flaubert.pretrain:
+pretrain:
     embedding: "word2vec"    # either doc2vec or word2vec
     doc2vec_labels: ['sentence']   # allowed labels: ['sentence', 'document']
 
-flaubert.train:
-    embedding: "word2vec"    # either doc2vec or word2vec
+train:
+    features: ["word2vec", "bow"]    # either doc2vec or word2vec
 
 word2vec:
     sg: 1               # 1 for skip-gram (default), cbow otherwise

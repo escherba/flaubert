@@ -2,9 +2,10 @@ from __future__ import print_function
 
 import numpy as np
 import logging
-from itertools import chain
+from itertools import chain, izip
 from collections import Counter
 from gensim.models import word2vec
+from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.cross_validation import train_test_split
 from sklearn.grid_search import GridSearchCV
 from sklearn.metrics import classification_report
@@ -14,15 +15,47 @@ from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier, \
     ExtraTreesClassifier
 from sklearn.feature_extraction import DictVectorizer
 from sklearn.feature_extraction.text import TfidfTransformer
+from sklearn.pipeline import FeatureUnion, Pipeline
 from sklearn.linear_model import LogisticRegression
 from pymaptools.io import PathArgumentParser, GzipFileType, read_json_lines
 from flaubert.preprocess import read_tsv
 from flaubert.pretrain import sentence_iter
 from flaubert.conf import CONFIG
-from scipy.sparse import csr
 
 
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
+
+
+class ItemSelector(BaseEstimator, TransformerMixin):
+    """For data grouped by feature, select subset of data at a provided key.
+    The data is expected to be stored in a 2D data structure, where the first
+    index is over features and the second is over samples.  i.e.
+    >> len(data[key]) == n_samples
+    Please note that this is the opposite convention to sklearn feature
+    matrixes (where the first index corresponds to sample).
+    ItemSelector only requires that the collection implement getitem
+    (data[key]).  Examples include: a dict of lists, 2D numpy array, Pandas
+    DataFrame, numpy record array, etc.
+    >> data = {'a': [1, 5, 2, 5, 2, 8],
+               'b': [9, 4, 1, 4, 1, 3]}
+    >> ds = ItemSelector(key='a')
+    >> data['a'] == ds.transform(data)
+    ItemSelector is not designed to handle data grouped by sample.  (e.g. a
+    list of dicts).  If your data is structured this way, consider a
+    transformer along the lines of `sklearn.feature_extraction.DictVectorizer`.
+    Parameters
+    ----------
+    key : hashable, required
+        The key corresponding to the desired value in a mappable.
+    """
+    def __init__(self, key):
+        self.key = key
+
+    def fit(self, x, y=None):
+        return self
+
+    def transform(self, data_dict):
+        return data_dict[self.key]
 
 
 def makeFeatureVec(words, model, num_features):
@@ -44,39 +77,34 @@ def makeFeatureVec(words, model, num_features):
     return vector
 
 
-def get_word2vec_features(docs_file, model):
+def get_word2vec_features(document_iter, model):
     """
     Given a set of reviews (each one a list of words), calculate
     the average feature vector for each one and return a 2D numpy array
     """
-
     _, num_features = model.syn0.shape
 
-    reviews = list(read_json_lines(docs_file))
+    reviews = list(document_iter)
     num_reviews = len(reviews)
 
     # Preallocate a 2D numpy array, for speed
     result = np.zeros((num_reviews, num_features), dtype="float32")
-    for idx, review in enumerate(reviews):
-        if (idx + 1) % 1000 == 0:
-            print("Review %d of %d" % ((idx + 1), num_reviews))
-        result[idx] = makeFeatureVec(chain(*review), model, num_features)
+    for idx, doc in enumerate(reviews):
+        result[idx] = makeFeatureVec(chain(*doc), model, num_features)
     return result
 
 
-def get_doc2vec_features(docs_file, model):
+def get_doc2vec_features(document_iter, model):
 
     _, num_features = model.syn0.shape
 
-    review_sent_labels = list(sentence_iter([docs_file]))
-    num_reviews = len(review_sent_labels)
+    doc_sent_labels = list(sentence_iter(document_iter))
+    num_docs = len(doc_sent_labels)
 
     # Preallocate a 2D numpy array, for speed
-    result = np.zeros((num_reviews, num_features), dtype="float32")
+    result = np.zeros((num_docs, num_features), dtype="float32")
 
-    for idx, labels in enumerate(review_sent_labels):
-        if (idx + 1) % 1000 == 0:
-            print("Review %d of %d" % ((idx + 1), num_reviews))
+    for idx, labels in enumerate(doc_sent_labels):
         nvecs = 0
         vector = np.zeros((num_features,), dtype="float32")
         for sentence, this_labels in labels:
@@ -89,18 +117,45 @@ def get_doc2vec_features(docs_file, model):
     return result
 
 
-def bow_iter(docs_file):
-    return (Counter(chain(*doc)) for doc in read_json_lines(docs_file))
-
-
-def get_bow_features(args):
+def get_bow_features(documents):
     # TODO: replace this with a Pipeline
-    data = list(bow_iter(args.sentences))
+    data = [Counter(chain(*doc)) for doc in documents]
     vectorizer = DictVectorizer()
     train_data_features = vectorizer.fit_transform(data)
     transformer = TfidfTransformer()
     train_data_features = transformer.fit_transform(train_data_features)
     return train_data_features
+
+
+def get_mixed_features(sentences, embedding_vectors, y_labels):
+    X_tmp = []
+    y = []
+    for doc, emb_vec, y_label in izip(sentences, embedding_vectors, y_labels):
+        if np.isnan(emb_vec).any():
+            continue
+        bow_feats = Counter(chain(*doc))
+        y.append(y_label)
+        X_tmp.append((bow_feats, emb_vec))
+    return X_tmp, np.asarray(y)
+
+
+class BowEmbExtractor(BaseEstimator, TransformerMixin):
+    """Extract the subject & body from a usenet post in a single pass.
+    Takes a sequence of strings and produces a dict of sequences.  Keys are
+    `subject` and `body`.
+    """
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        features = np.recarray(
+            shape=(len(X),),
+            dtype=[('bow', object), ('embedding', np.float32, (400,))]
+        )
+        for i, (bow, embedding) in enumerate(X):
+            features['bow'][i] = bow
+            features['embedding'][i] = embedding
+        return features
 
 
 SCORING = 'f1'
@@ -111,8 +166,8 @@ PARAM_GRIDS = {
         # {'dual': [True], 'penalty':['l2'], 'C': [0.01, 0.033, 0.1, 0.33, 1.0]}
     ],
     'LinearSVC': [
-        {'dual': [False], 'penalty':['l1', 'l2'], 'C': [1, 3.33, 10, 33, 100, 333]},
-        {'dual': [True], 'penalty':['l2'], 'C': [0.1, 1, 10, 100]}
+        {'clf__dual': [False], 'clf__penalty':['l1', 'l2'], 'clf__C': [1, 3.33, 10, 33, 100, 333]},
+        {'clf__dual': [True],  'clf__penalty':['l2'],       'clf__C': [0.1, 1, 10, 100]}
     ],
     'RandomForestClassifier': {
         "n_estimators": [90],
@@ -130,6 +185,28 @@ PARAM_GRIDS = {
     }
 }
 
+pipeline = Pipeline([
+    ('bowemb', BowEmbExtractor()),
+    ('union', FeatureUnion(
+        transformer_list=[
+            #('bow', Pipeline([
+            #    ('selector', ItemSelector(key='bow')),
+            #    ('vect', DictVectorizer()),
+            #    ('tfidf', TfidfTransformer()),
+            #])),
+
+            ('embedding', Pipeline([
+                ('selector', ItemSelector(key='embedding')),
+            ])),
+        ],
+        transformer_weights={
+            #'bow': 1.0,
+            'embedding': 1.0,
+        },
+    )),
+    ('clf', LinearSVC()),
+])
+
 GRIDSEARHCV_KWARGS = dict(cv=5, scoring=SCORING, n_jobs=-1, verbose=10)
 DECISION_TREE_PARAMS = dict(
     criterion="gini", max_depth=2, min_samples_split=2, min_samples_leaf=2
@@ -137,7 +214,7 @@ DECISION_TREE_PARAMS = dict(
 
 CLASSIFIER_GRIDS = {
     'lr': [[LogisticRegression(), PARAM_GRIDS['LogisticRegression']], GRIDSEARHCV_KWARGS],
-    'svm': [[LinearSVC(), PARAM_GRIDS['LinearSVC']], GRIDSEARHCV_KWARGS],
+    'svm': [[pipeline, PARAM_GRIDS['LinearSVC']], GRIDSEARHCV_KWARGS],
     'random_forest': [[RandomForestClassifier(), PARAM_GRIDS['RandomForestClassifier']], GRIDSEARHCV_KWARGS],
     'adaboost': [[AdaBoostClassifier(DecisionTreeClassifier(**DECISION_TREE_PARAMS)), PARAM_GRIDS['AdaBoost']], GRIDSEARHCV_KWARGS]
 }
@@ -157,11 +234,7 @@ def train_model(args, y, X):
     # Split the dataset
 
     # X and y arrays must have matching numbers of rows
-    assert X.shape[0] == y.shape[0]
-
-    # if dense, drop rows that contain any NaNs (missing values)
-    if not isinstance(X, csr.csr_matrix):
-        X, y = drop_nans(X, y)
+    #assert X.shape[0] == y.shape[0]
 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=0)
@@ -240,34 +313,44 @@ def parse_args(args=None):
     return namespace
 
 
-def get_features(args, embedding=None):
+def get_data(args):
 
-    if not args.embedding:
-        return get_bow_features(args)
+    feature_set_names = CONFIG['train']['features']
+    if set(feature_set_names).intersection(['word2vec', 'doc2vec']) and not args.embedding:
+        raise RuntimeError("--embedding argument must be supplied")
+
+    # get Y labels
+    training_set = read_tsv(args.train)
+    y_labels = training_set["sentiment"]
+
+    sentences = list(read_json_lines(args.sentences))
+
+    if not args.embedding or feature_set_names == ['bow']:
+        # don't drop NaNs -- have a sparse matrix here
+        return get_bow_features(sentences), y_labels
 
     # load embedding
-    if embedding is None and args.embedding:
-        embedding = word2vec.Word2Vec.load(args.embedding)
+    embedding = word2vec.Word2Vec.load(args.embedding)
 
     # get feature vectors
-    if CONFIG['embedding'] == 'doc2vec':
-        feature_vectors = get_doc2vec_features(args.sentences, embedding)
-    elif CONFIG['embedding'] == 'word2vec':
-        feature_vectors = get_word2vec_features(args.sentences, embedding)
+    if 'doc2vec' in CONFIG['train']['features']:
+        embedding_vectors = get_doc2vec_features(sentences, embedding)
+    elif 'word2vec' in CONFIG['train']['features']:
+        embedding_vectors = get_word2vec_features(sentences, embedding)
     else:
-        raise RuntimeError("Invalid config setting embedding=%s" % CONFIG['embedding'])
+        raise RuntimeError("Invalid config setting train:features=%s" % CONFIG['train']['features'])
 
-    return feature_vectors
+    if 'bow' in feature_set_names:
+        return get_mixed_features(sentences, embedding_vectors, y_labels)
+    else:
+        # matrix is dense -- drop NaNs
+        return drop_nans(embedding_vectors, y_labels)
 
 
 def run(args):
 
     # load embedding
-    feature_vectors = get_features(args)
-
-    # get Y labels
-    training_set = read_tsv(args.train)
-    y_labels = training_set["sentiment"]
+    feature_vectors, y_labels = get_data(args)
 
     # train a classifier
     if args.plot_features:
