@@ -38,7 +38,8 @@ pretrain:
     doc2vec_labels: ['sentence']   # allowed labels: ['sentence', 'document']
 
 train:
-    features: ["word2vec", "bow"]    # either doc2vec or word2vec
+    scoring: 'f1'
+    features: ["bow"]    # either doc2vec or word2vec
 
 word2vec:
     sg: 1               # 1 for skip-gram (default), cbow otherwise

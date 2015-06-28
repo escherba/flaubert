@@ -136,88 +136,98 @@ def get_mixed_features(sentences, embedding_vectors, y_labels):
         bow_feats = Counter(chain(*doc))
         y.append(y_label)
         X_tmp.append((bow_feats, emb_vec))
-    return X_tmp, np.asarray(y)
 
+    num_rows = len(X_tmp)
+    num_cols = len(X_tmp[0][1])
+    X = np.recarray(
+        shape=(num_rows,),
+        dtype=[('bow', object), ('embedding', np.float32, (num_cols,))]
+    )
+    for i, (bow, embedding) in enumerate(X_tmp):
+        X['bow'][i] = bow
+        X['embedding'][i] = embedding
+    return X, np.asarray(y)
 
-class BowEmbExtractor(BaseEstimator, TransformerMixin):
-    """Extract the subject & body from a usenet post in a single pass.
-    Takes a sequence of strings and produces a dict of sequences.  Keys are
-    `subject` and `body`.
-    """
-    def fit(self, X, y=None):
-        return self
-
-    def transform(self, X):
-        features = np.recarray(
-            shape=(len(X),),
-            dtype=[('bow', object), ('embedding', np.float32, (400,))]
-        )
-        for i, (bow, embedding) in enumerate(X):
-            features['bow'][i] = bow
-            features['embedding'][i] = embedding
-        return features
-
-
-SCORING = 'f1'
 
 PARAM_GRIDS = {
-    'LogisticRegression': [
-        {'dual': [False], 'penalty':['l1', 'l2'], 'C': [0.01, 0.033, 0.1, 0.33, 1.0]},
-        # {'dual': [True], 'penalty':['l2'], 'C': [0.01, 0.033, 0.1, 0.33, 1.0]}
+    'lr': [
+        LogisticRegression,
+        [
+            {'clf__dual': [False], 'clf__penalty':['l1', 'l2'], 'clf__C': [0.01, 0.033, 0.1, 0.33, 1.0]},
+            {'clf__dual': [True],  'clf__penalty':['l2'],       'clf__C': [0.01, 0.033, 0.1, 0.33, 1.0]}
+        ]
     ],
-    'LinearSVC': [
-        {'clf__dual': [False], 'clf__penalty':['l1', 'l2'], 'clf__C': [1, 3.33, 10, 33, 100, 333]},
-        {'clf__dual': [True],  'clf__penalty':['l2'],       'clf__C': [0.1, 1, 10, 100]}
+    'svm': [
+        LinearSVC,
+        [
+            {'clf__dual': [False], 'clf__penalty':['l1', 'l2'], 'clf__C': [1, 3.33, 10, 33, 100, 333]},
+            {'clf__dual': [True],  'clf__penalty':['l2'],       'clf__C': [0.1, 1, 10, 100]}
+        ]
     ],
-    'RandomForestClassifier': {
-        "n_estimators": [90],
-        "max_depth": [32, 64],
-        "max_features": [50, 75, 100],
-        "min_samples_split": [2],
-        "min_samples_leaf": [2, 3],
-        "bootstrap": [False],
-        "criterion": ["gini"]
-    },
-    'AdaBoost': {
-        'n_estimators': [60],
-        'learning_rate': [0.8],
-        'algorithm': ['SAMME.R']
-    }
+    'random_forest': [
+        RandomForestClassifier,
+        {
+            "clf__n_estimators": [90],
+            "clf__max_depth": [32, 64],
+            "clf__max_features": [50, 75, 100],
+            "clf__min_samples_split": [2],
+            "clf__min_samples_leaf": [2, 3],
+            "clf__bootstrap": [False],
+            "clf__criterion": ["gini"]
+        }
+    ],
+    'adaboost': [
+        (
+            lambda: AdaBoostClassifier(DecisionTreeClassifier(
+                criterion="gini", max_depth=2, min_samples_split=2, min_samples_leaf=2))
+        ),
+        {
+            'clf__n_estimators': [60],
+            'clf__learning_rate': [0.8],
+            'clf__algorithm': ['SAMME.R']
+        }
+    ]
 }
 
-pipeline = Pipeline([
-    ('bowemb', BowEmbExtractor()),
-    ('union', FeatureUnion(
-        transformer_list=[
-            #('bow', Pipeline([
-            #    ('selector', ItemSelector(key='bow')),
-            #    ('vect', DictVectorizer()),
-            #    ('tfidf', TfidfTransformer()),
-            #])),
 
-            ('embedding', Pipeline([
-                ('selector', ItemSelector(key='embedding')),
-            ])),
-        ],
-        transformer_weights={
-            #'bow': 1.0,
-            'embedding': 1.0,
-        },
-    )),
-    ('clf', LinearSVC()),
-])
-
-GRIDSEARHCV_KWARGS = dict(cv=5, scoring=SCORING, n_jobs=-1, verbose=10)
-DECISION_TREE_PARAMS = dict(
-    criterion="gini", max_depth=2, min_samples_split=2, min_samples_leaf=2
-)
-
-CLASSIFIER_GRIDS = {
-    'lr': [[LogisticRegression(), PARAM_GRIDS['LogisticRegression']], GRIDSEARHCV_KWARGS],
-    'svm': [[pipeline, PARAM_GRIDS['LinearSVC']], GRIDSEARHCV_KWARGS],
-    'random_forest': [[RandomForestClassifier(), PARAM_GRIDS['RandomForestClassifier']], GRIDSEARHCV_KWARGS],
-    'adaboost': [[AdaBoostClassifier(DecisionTreeClassifier(**DECISION_TREE_PARAMS)), PARAM_GRIDS['AdaBoost']], GRIDSEARHCV_KWARGS]
-}
+def build_grid(args, is_mixed):
+    clf, clf_params = PARAM_GRIDS[CONFIG['train']['classifier']]
+    feature_set_names = CONFIG['train']['features']
+    if is_mixed:
+        transformer_list = []
+        transformer_weights = {}
+        if set(feature_set_names).intersection(['word2vec', 'doc2vec']):
+            transformer_weights['embedding'] = 1.0
+            transformer_list.append(
+                # ('embedding', Pipeline([
+                #     ('selector', ItemSelector(key='embedding')),
+                # ])),
+                ('embedding', ItemSelector(key='embedding'))
+            )
+        if set(feature_set_names).intersection(['bow']):
+            transformer_weights['bow'] = 1.0
+            transformer_list.append(
+                ('bow', Pipeline([
+                    ('selector', ItemSelector(key='bow')),
+                    ('vect', DictVectorizer()),
+                    ('tfidf', TfidfTransformer()),
+                ]))
+            )
+        pipeline = Pipeline([
+            ('union', FeatureUnion(
+                transformer_list=transformer_list,
+                transformer_weights=transformer_weights,
+            )),
+            ('clf', clf()),
+        ])
+    else:
+        pipeline = Pipeline([
+            ('clf', clf()),
+        ])
+    grid_args = [pipeline, clf_params]
+    grid_kwargs = dict(cv=5, scoring=CONFIG['train']['scoring'], n_jobs=-1, verbose=10)
+    result = GridSearchCV(*grid_args, **grid_kwargs)
+    return result
 
 
 def drop_nans(X, y):
@@ -229,21 +239,21 @@ def drop_nans(X, y):
     return X, y
 
 
-def train_model(args, y, X):
+def train_model(args, y, X, is_mixed=False):
     # TODO: use Hyperopt for hyperparameter search
     # Split the dataset
 
     # X and y arrays must have matching numbers of rows
-    #assert X.shape[0] == y.shape[0]
+    # assert X.shape[0] == y.shape[0]
 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=0)
 
-    print("# Tuning hyper-parameters for %s (classifier: %s)" % (SCORING, args.classifier))
+    scoring = CONFIG['train']['scoring']
+    print("# Tuning hyper-parameters for %s (classifier: %s)" % (scoring, CONFIG['train']['classifier']))
     print()
 
-    args, kwargs = CLASSIFIER_GRIDS[args.classifier]
-    clf = GridSearchCV(*args, **kwargs)
+    clf = build_grid(args, is_mixed=is_mixed)
     clf.fit(X_train, y_train)
 
     print("Grid scores on development set:")
@@ -267,7 +277,7 @@ def train_model(args, y, X):
     print(clf.best_params_)
     print()
 
-    print("Best score: %s=%f" % (SCORING, clf.best_score_))
+    print("Best score: %s=%f" % (scoring, clf.best_score_))
     print()
     return clf
 
@@ -298,9 +308,6 @@ def feat_imp(args, y, X, num_features=25):
 
 def parse_args(args=None):
     parser = PathArgumentParser()
-    parser.add_argument('--classifier', type=str, default='svm',
-                        choices=CLASSIFIER_GRIDS.keys(),
-                        help='Which classifier to use')
     parser.add_argument('--embedding', type=str, metavar='FILE', default=None,
                         help='Input word2vec (or doc2vec) model')
     parser.add_argument('--train', type=str, metavar='FILE', required=True,
@@ -327,7 +334,7 @@ def get_data(args):
 
     if not args.embedding or feature_set_names == ['bow']:
         # don't drop NaNs -- have a sparse matrix here
-        return get_bow_features(sentences), y_labels
+        return False, (get_bow_features(sentences), y_labels)
 
     # load embedding
     embedding = word2vec.Word2Vec.load(args.embedding)
@@ -341,22 +348,23 @@ def get_data(args):
         raise RuntimeError("Invalid config setting train:features=%s" % CONFIG['train']['features'])
 
     if 'bow' in feature_set_names:
-        return get_mixed_features(sentences, embedding_vectors, y_labels)
+        return True, get_mixed_features(sentences, embedding_vectors, y_labels)
     else:
         # matrix is dense -- drop NaNs
-        return drop_nans(embedding_vectors, y_labels)
+        return False, drop_nans(embedding_vectors, y_labels)
 
 
 def run(args):
 
     # load embedding
-    feature_vectors, y_labels = get_data(args)
+    data = get_data(args)
+    is_mixed, (feature_vectors, y_labels) = data
 
     # train a classifier
     if args.plot_features:
         feat_imp(args, y_labels, feature_vectors)
     else:
-        train_model(args, y_labels, feature_vectors)
+        train_model(args, y_labels, feature_vectors, is_mixed=is_mixed)
 
 
 if __name__ == "__main__":
