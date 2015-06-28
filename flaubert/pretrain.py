@@ -13,27 +13,32 @@ def get_sentences(input_files):
     return chain(*containers)
 
 
-def sentence_iter(input_files):
+def sentence_iter(document_iter):
     doc_idx = 0
-    allowed_labels = CONFIG['doc2vec_labels']
+    allowed_labels = CONFIG['pretrain']['doc2vec_labels']
     sentence_label = 'sentence' in allowed_labels
     document_label = 'document' in allowed_labels
+    for document in document_iter:
+        doc_data = []
+        for sent_idx, sentence in enumerate(document):
+            labels = []
+            if sentence_label:
+                labels.append(u'SENT_%d_%d' % (doc_idx, sent_idx))
+            if document_label:
+                labels.append(u'DOC_%d' % doc_idx)
+            doc_data.append((sentence, labels))
+        yield doc_data
+        doc_idx += 1
+
+
+def doc_iter(input_files):
     for fname in input_files:
-        for document in read_json_lines(fname):
-            doc_data = []
-            for sent_idx, sentence in enumerate(document):
-                labels = []
-                if sentence_label:
-                    labels.append(u'SENT_%d_%d' % (doc_idx, sent_idx))
-                if document_label:
-                    labels.append(u'DOC_%d' % doc_idx)
-                doc_data.append((sentence, labels))
-            yield doc_data
-            doc_idx += 1
+        for doc in read_json_lines(fname):
+            yield doc
 
 
 def get_labeled_sentences(input_files):
-    for doc_data in sentence_iter(input_files):
+    for doc_data in sentence_iter(doc_iter(input_files)):
         for sentence, labels in doc_data:
             yield doc2vec.LabeledSentence(sentence, labels=labels)
 
@@ -66,18 +71,19 @@ def build_model(args):
     logging.info("Reading sentences from files: %s (%d workers)", input_files, num_workers)
 
     # Initialize and train the model (this will take some time)
-    if CONFIG['embedding'] == 'doc2vec':
+    embedding_type = CONFIG['pretrain']['embedding']
+    if embedding_type == 'doc2vec':
         sentences = list(get_labeled_sentences(input_files))
         logging.info("Training doc2vec model on %d sentences", len(sentences))
         model = doc2vec.Doc2Vec(
             sentences, workers=num_workers, **CONFIG['doc2vec'])
-    elif CONFIG['embedding'] == 'word2vec':
+    elif embedding_type == 'word2vec':
         sentences = list(get_sentences(input_files))
         logging.info("Training word2vec model on %d sentences", len(sentences))
         model = word2vec.Word2Vec(
             sentences, workers=num_workers, **CONFIG['word2vec'])
     else:
-        raise ValueError("Invalid config setting embedding=%s" % CONFIG['embedding'])
+        raise ValueError("Invalid config setting embedding=%s" % embedding_type)
 
     return model
 

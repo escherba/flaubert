@@ -32,14 +32,7 @@ pretrain: $(EMBEDDING)
 
 train: $(LABELED_TRAIN).tsv $(LABELED_TRAIN).sents.gz $(EMBEDDING)
 	$(PYTHON) -m flaubert.train \
-		--classifier svm \
 		--embedding $(EMBEDDING) \
-		--train $(LABELED_TRAIN).tsv \
-		--sentences $(LABELED_TRAIN).sents.gz
-
-train_bow: $(LABELED_TRAIN).tsv $(LABELED_TRAIN).sents.gz
-	$(PYTHON) -m flaubert.train \
-		--classifier svm \
 		--train $(LABELED_TRAIN).tsv \
 		--sentences $(LABELED_TRAIN).sents.gz
 
