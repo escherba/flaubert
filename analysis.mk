@@ -6,7 +6,7 @@ TEST = $(DATA_DIR)/testData
 LABELED_TRAIN = $(DATA_DIR)/labeledTrainData
 UNLABELED_TRAIN =  $(DATA_DIR)/unlabeledTrainData
 TRAIN = $(LABELED_TRAIN) $(UNLABELED_TRAIN)
-WORD2VEC = $(DATA_DIR)/300features_40minwords_10context
+EMBEDDING = $(DATA_DIR)/300features_40minwords_10context
 SENT_TOKENIZER = $(DATA_DIR)/sentence_tokenizer.pickle
 
 export NLTK_DATA=$(NLTK_DIR)
@@ -15,7 +15,7 @@ TSVS  := $(ALL_DATA:.tsv.zip=.tsv)
 SENTS := $(ALL_DATA:.tsv.zip=.sents.gz)
 
 clean_data:
-	rm -rf $(SENTS) $(WORDS) $(WORD2VEC)
+	rm -rf $(SENTS) $(WORDS) $(EMBEDDING)
 
 sentences: $(SENTS) | env
 	@echo "done"
@@ -23,21 +23,21 @@ sentences: $(SENTS) | env
 nltk: $(NLTK_DIR_DONE)
 	@echo "done"
 
-pretrain: $(WORD2VEC)
+pretrain: $(EMBEDDING)
 	@echo "done"
 
-.SECONDARY: $(TSVS) $(SENT_TOKENIZER) $(WORDS) $(SENTS) $(WORD2VEC)
+.SECONDARY: $(TSVS) $(SENT_TOKENIZER) $(WORDS) $(SENTS) $(EMBEDDING)
 %.tsv: %.tsv.zip
 	unzip -p $< > $@
 
-train: $(LABELED_TRAIN).tsv $(LABELED_TRAIN).sents.gz $(WORD2VEC)
+train: $(LABELED_TRAIN).tsv $(LABELED_TRAIN).sents.gz $(EMBEDDING)
 	$(PYTHON) -m flaubert.train \
-		--classifier svm --model $(WORD2VEC) \
+		--embedding $(EMBEDDING) \
 		--train $(LABELED_TRAIN).tsv \
 		--sentences $(LABELED_TRAIN).sents.gz
 
-$(WORD2VEC): $(LABELED_TRAIN).sents.gz $(UNLABELED_TRAIN).sents.gz
-	@echo "Creating word2vec model at $(WORD2VEC)"
+$(EMBEDDING): $(LABELED_TRAIN).sents.gz $(UNLABELED_TRAIN).sents.gz
+	@echo "Building embedding model at $(EMBEDDING)"
 	python -m flaubert.pretrain \
 		--sentences $^ \
 		--output $@

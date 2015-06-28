@@ -29,9 +29,17 @@ tokenizer:
         'seuss', 'strangelove', 'jekyll', 'moreau', 'hackenstein', 'blandings',
         'atoz', 'john']   # commonly prefixed with Dr. or St.
 
-lemmatizer: "wordnet"   # null or "wordnet"
-stemmer: null           # null or "porter"
-embedding: "doc2vec"    # either doc2vec or word2vec
+preprocess:
+    lemmatizer: "wordnet"   # null or "wordnet"
+    stemmer: null           # null or "porter"
+
+pretrain:
+    embedding: "word2vec"    # either doc2vec or word2vec
+    doc2vec_labels: ['sentence']   # allowed labels: ['sentence', 'document']
+
+train:
+    scoring: 'f1'
+    features: ["bow"]    # either doc2vec or word2vec
 
 word2vec:
     sg: 1               # 1 for skip-gram (default), cbow otherwise
@@ -43,9 +51,9 @@ word2vec:
 
 doc2vec:
     dm: 1               # 1 for skip-gram (default), cbow otherwise
-    size: 400           # Number of features
-    min_count: 10       # Minimum word count
-    window: 20          # max distance between the current and predicted word
+    size: 800           # Number of features
+    min_count: 20       # Minimum word count
+    window: 10          # max distance between the current and predicted word
     sample: 0.001       # Downsample setting for frequent words
     seed: 1337          # for random number generator
     train_words: true
