@@ -18,9 +18,8 @@ from sklearn.pipeline import FeatureUnion, Pipeline
 from sklearn.linear_model import LogisticRegression
 from nltk.corpus import stopwords
 from pymaptools.io import PathArgumentParser, GzipFileType, read_json_lines
-from flaubert.preprocess import read_tsv
 from flaubert.pretrain import sentence_iter
-from flaubert.utils import ItemSelector
+from flaubert.utils import ItemSelector, read_tsv
 from flaubert.conf import CONFIG
 
 
@@ -307,7 +306,7 @@ def get_data(args):
     training_set = read_tsv(args.train)
     y_labels = training_set["sentiment"]
 
-    sentences = list(read_json_lines(args.sentences))
+    sentences = [obj['review'] for obj in read_json_lines(args.sentences)]
 
     if not args.embedding or feature_set_names == ['bow']:
         # don't drop NaNs -- have a sparse matrix here

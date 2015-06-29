@@ -19,7 +19,7 @@ from flaubert.tokenize import RegexpFeatureTokenizer
 from flaubert.urls import URLParser
 from flaubert.conf import CONFIG
 from flaubert.HTMLParser import HTMLParser, HTMLParseError
-from flaubert.utils import read_tsv, treebank2wordnet, lru_wrap
+from flaubert.utils import treebank2wordnet, lru_wrap, pd_dict_iter
 from flaubert.unicode_maps import EXTRA_TRANSLATE_MAP
 
 
@@ -394,23 +394,6 @@ class SimpleSentenceTokenizer(object):
     tokenize = word_tokenize
 
 
-def get_field_iter(field, datasets, chunksize=1000):
-    """Produce an iterator over values for a particular field in Pandas
-    dataframe while reading from disk
-
-    :param field: a string specifying field name of interest
-    :param datasets: a list of filenames or file handles
-    :param chunksize: how many lines to read at once
-    """
-    # ensure that silly values of chunksize don't get passed
-    if not chunksize:
-        chunksize = 1
-    for dataset in datasets:
-        for chunk in read_tsv(dataset, iterator=True, chunksize=chunksize):
-            for review in chunk[field]:
-                yield review
-
-
 def registry(key):
     """
     retrieves objects given keys from config
@@ -434,19 +417,24 @@ def tokenizer_builder():
 TOKENIZER = tokenizer_builder()
 
 
-def get_sentences(text, **kwargs):
+def get_sentences(field, row, **kwargs):
     sentences = []
+    text = row[field]
     for sentence in TOKENIZER.sentence_tokenize(text, **kwargs):
         sentences.append(sentence)
-    return sentences
+    row[field] = sentences
+    return row
 
 
-def get_words(review, **kwargs):
-    return TOKENIZER.tokenize(review, **kwargs)
+def get_words(field, row, **kwargs):
+    text = row[field]
+    words = TOKENIZER.tokenize(text, **kwargs)
+    row[field] = words
+    return row
 
 
 def get_review_iterator(args):
-    iterator = get_field_iter(args.field, args.input, chunksize=1000)
+    iterator = pd_dict_iter(args.input, chunksize=1000)
     if args.limit:
         iterator = islice(iterator, args.limit)
     return iterator
@@ -464,15 +452,16 @@ def run_tokenize(args):
     iterator = get_review_iterator(args)
     mapper = get_mapper_method(args)
     write_record = partial(write_json_line, args.output)
+    field = args.field
     if args.n_jobs == 1:
         # turn off parallelism
-        for review in iterator:
-            record = mapper(review)
+        for row in iterator:
+            record = mapper(field, row)
             write_record(record)
     else:
         # enable parallellism
         for record in Parallel(n_jobs=args.n_jobs, verbose=10)(
-                delayed(mapper)(review) for review in iterator):
+                delayed(mapper)(field, row) for row in iterator):
             write_record(record)
 
 

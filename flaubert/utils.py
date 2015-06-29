@@ -1,7 +1,8 @@
-import pandas as pd
+import pandas
 from nltk.stem import wordnet
 from fastcache import clru_cache
 from sklearn.base import BaseEstimator, TransformerMixin
+from pymaptools.iter import isiterable
 
 
 TREEBANK2WORDNET = {
@@ -13,17 +14,55 @@ TREEBANK2WORDNET = {
 
 
 def read_tsv(file_input, iterator=False, chunksize=None):
-    return pd.read_csv(
+    """
+    @rtype: pandas.core.frame.DataFrame
+    """
+    return pandas.read_csv(
         file_input, iterator=iterator, chunksize=chunksize,
         header=0, quoting=2, delimiter="\t", escapechar="\\", quotechar='"',
         encoding="utf-8")
 
 
-def lru_wrap(fun, cache_size=None):
+def pd_row_iter(datasets, chunksize=1000):
+    """Produce an iterator over rows in Pandas
+    dataframe while reading from files on disk
+
+    @param datasets: a list of filenames or file handles
+    @param chunksize: how many lines to read at once
+    """
+    # ensure that silly values of chunksize don't get passed
+    if not chunksize:
+        chunksize = 1
+    if not isiterable(datasets):
+        datasets = [datasets]
+    for dataset in datasets:
+        for chunk in read_tsv(dataset, iterator=True, chunksize=chunksize):
+            for row in chunk.iterrows():
+                yield row
+
+
+def pd_dict_iter(datasets, chunksize=1000):
+    for idx, row in pd_row_iter(datasets, chunksize=chunksize):
+        yield dict(row)
+
+
+def pd_field_iter(field, datasets, chunksize=1000):
+    """Produce an iterator over values for a particular field in Pandas
+    dataframe while reading from files on disk
+
+    @param field: a string specifying field name of interest
+    @param datasets: a list of filenames or file handles
+    @param chunksize: how many lines to read at once
+    """
+    for row in pd_row_iter(datasets, chunksize=chunksize):
+        yield row[field]
+
+
+def lru_wrap(func, cache_size=None):
     if cache_size:
-        return clru_cache(maxsize=cache_size)(fun)
+        return clru_cache(maxsize=cache_size)(func)
     else:
-        return fun
+        return func
 
 
 def treebank2wordnet(treebank_tag):
