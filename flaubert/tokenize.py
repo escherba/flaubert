@@ -44,6 +44,8 @@ DEFAULT_FEATURE_MAP = u"""
 |
 (?P<TIMEOFDAY>\\b[0-2]?[0-9]:[0-6][0-9](?:\\s*[AaPp][Mm])?\\b)
 |
+(?P<DATE>\\b[0-9]+\\s*\\/\\s*[0-9]+\\s*\\/\\s*[0-9]+\\b)
+|
 (?P<EMOTIC_EAST_LO>\\(?[\\+\\^ˇ\\*\\->~][_\\.][\\+\\^ˇ\\*\\-<~]\\)?)
 |
 (?P<EMOTIC_EAST_HI>\\(?[\\^ˇ\\*][\\-~oO][\\^ˇ\\*]\\)?)
@@ -62,11 +64,11 @@ DEFAULT_FEATURE_MAP = u"""
 |
 (?P<CONTRACTION>\\b([a-zA-Z]+)'([a-zA-Z]{1,2})\\b)     # you're, it's, it'd, he'll
 |
-(?P<STARRATING>([0-9]{1,2}|(?:\\*\\s?)+|%(number)s)(\\.[0-9]|[\\s-]*[1-9]\\s?\\/\\s?[1-9])?\\s*(?:stars?(?:\\s+rating)?)?\\s*(?:\\/\\s*|\\(?(?:out\\s+)?of\\s+)(4|5|10|four|five|ten|\\*+)(?:\\s+stars)?)
+(?P<STARRATING>((?:(?:\\s\\-)?[0-9]{1,2})|(?:\\*\\s?)+|%(number)s)(\\.[0-9]+|[\\s-]*[1-9]\\s?\\/\\s?[1-9])?\\s*(?:stars?(?:\\s+rating)?)?\\s*(?:\\/\\s*|\\(?(?:out\\s+)?of\\s+)((?:4|5|100?|four|five|ten)\\b|(?:\\*\\s?)+)(?:\\s+stars)?)
 |
 (?P<STARRATING_TEN>\\b(?:a|full)\\s10\\b)
 |
-(?P<STARRATING_X>\\b(?:a|my)\\s+([0-9](?:\\.[0-9])?)[\\s-]+(?:star\\s+)?rating\\b)
+(?P<STARRATING_X>\\b(?:a|my)\\s+(\\-?[0-9](?:\\.[0-9])?)[\\s-]+(?:star\\s+)?rating\\b)
 |
 (?P<MPAARATING>pg[-\\s]?13|nc[-\\s]?17)
 |
@@ -173,6 +175,7 @@ class RegexpFeatureTokenizer(object):
     handle_asciiarrow_left = _group_tag
     handle_asciiarrow_right = _group_tag
     handle_timeofday = _group_tag
+    handle_date = _group_tag
 
     def handle_special(self, match, *args):
         tag_name = match.group(match.lastindex + 1).upper()
@@ -234,14 +237,21 @@ class RegexpFeatureTokenizer(object):
                 modifier = numer / denom
             else:
                 modifier = float(modifier)
-            num_stars += modifier
+            if num_stars >= 0.0:
+                num_stars += modifier
+            else:
+                num_stars -= modifier
         num_stars *= (10.0 / out_of)
-        num_stars = int(round(num_stars))
+        num_stars = max(0, min(11, int(round(num_stars))))
         yield u"<%d/%d>" % (num_stars, 10)
 
     def handle_starrating_x(self, match, *args):
         num_stars = int(round(float(match.group(match.lastindex + 1))))
+        num_stars = max(0, min(11, num_stars))
         yield u"<%d/%d>" % (num_stars, 10)
+
+    def handle_starrating_ten(self, match, *args):
+        yield u"<10/10>"
 
     def simple_entity_handler(self, match, *args):
         yield self.groupname_format % RE_STRIP_NOISE(match.group()).upper()

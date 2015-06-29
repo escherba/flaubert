@@ -117,6 +117,21 @@ class TestFeatureTokens(unittest.TestCase, SetComparisonMixin):
             [u'a', u'dummy', u'comment', u'with', u'<URI>', u'and', u'<EMAIL>'],
             tokens)
 
+    def test_rating_false_0(self):
+        text = u"I re-lived 1939/40 and my own evacuation from London"
+        tokens = self.tokenize(text)
+        self.assertSetContainsSubset([u'40'], tokens)
+
+    def test_rating_false_1(self):
+        text = u"Update: 9/4/07-I've now read Breaking Free"
+        tokens = self.tokenize(text)
+        self.assertSetContainsSubset([u'<DATE>'], tokens)
+
+    def test_rating_0(self):
+        text = u"My rating: 8.75/10----While most of this show is good"
+        tokens = self.tokenize(text)
+        self.assertSetContainsSubset([u'<9/10>'], tokens)
+
     def test_rating_1(self):
         text = u"which deserves 11 out of 10,"
         tokens = self.tokenize(text)
@@ -176,6 +191,26 @@ class TestFeatureTokens(unittest.TestCase, SetComparisonMixin):
         text = u"Final Judgement: **/****"
         tokens = self.tokenize(text)
         self.assertSetContainsSubset([u'<5/10>'], tokens)
+
+    def test_rating_13(self):
+        text = u'on March 18th, 2007.<br /><br />84/100 (***)'
+        tokens = self.tokenize(text)
+        self.assertSetContainsSubset([u'<8/10>'], tokens)
+
+    def test_rating_14(self):
+        text = u'I give it a full 10.'
+        tokens = self.tokenize(text)
+        self.assertSetContainsSubset([u'<10/10>'], tokens)
+
+    def test_rating_15(self):
+        text = u'I give it a -50 out of 10. MY GOD!!!!'
+        tokens = self.tokenize(text)
+        self.assertSetContainsSubset([u'<0/10>'], tokens)
+
+    def test_rating_16(self):
+        text = u"* * 1/2 / * * * *"
+        tokens = self.tokenize(text)
+        self.assertSetContainsSubset([u'<6/10>'], tokens)
 
     def test_grade_1(self):
         text = u"can save this boring, Grade B+ western."
