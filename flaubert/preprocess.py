@@ -14,13 +14,12 @@ from nltk.corpus import stopwords
 from nltk.stem import wordnet, PorterStemmer
 from nltk import pos_tag
 from joblib import Parallel, delayed
-from fastcache import clru_cache
 from pymaptools.io import write_json_line, PathArgumentParser, GzipFileType, open_gz
 from flaubert.tokenize import RegexpFeatureTokenizer
 from flaubert.urls import URLParser
 from flaubert.conf import CONFIG
 from flaubert.HTMLParser import HTMLParser, HTMLParseError
-from flaubert.utils import read_tsv, treebank2wordnet
+from flaubert.utils import read_tsv, treebank2wordnet, lru_wrap
 from flaubert.unicode_maps import EXTRA_TRANSLATE_MAP
 
 
@@ -82,8 +81,8 @@ class GenericReplacer(Replacer):
 
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, re):
-        self._re = re
+    def __init__(self, regexp):
+        self._re = regexp
 
     @abc.abstractmethod
     def __call__(self, match):
@@ -107,8 +106,7 @@ class InPlaceReplacer(GenericReplacer):
             _replacements[idx] = val
             _regexes.append(u'({})'.format(key))
         self._replacements = _replacements
-        super(InPlaceReplacer, self).__init__(
-            re=re.compile(u'|'.join(_regexes), re.UNICODE | re.IGNORECASE))
+        super(InPlaceReplacer, self).__init__(re.compile(u'|'.join(_regexes), re.UNICODE | re.IGNORECASE))
 
     def __call__(self, match):
         lastindex = match.lastindex
@@ -274,7 +272,7 @@ class SimpleSentenceTokenizer(object):
             raise ValueError("Invalid sentence tokenizer class")
 
         self.sentence_tokenizer = None
-        self._lemmatize = clru_cache(maxsize=lru_cache_size)(lemmatizer.lemmatize) if lemmatizer else None
+        self._lemmatize = lru_wrap(lemmatizer.lemmatize, lru_cache_size) if lemmatizer else None
         self._stem = stemmer.stem if stemmer else None
         self._pos_tag = pos_tag
         self._replace_char_repeats = \
@@ -478,7 +476,7 @@ def run_tokenize(args):
             write_record(record)
 
 
-def run_train(args):
+def train_sentence_tokenizer(args):
     from flaubert.punkt import PunktTrainer, \
         PunktLanguageVars, PunktSentenceTokenizer
     iterator = get_review_iterator(args)
@@ -525,7 +523,7 @@ def parse_args(args=None):
     parser_train = subparsers.add_parser('train')
     parser_train.add_argument('--verbose', action='store_true',
                               help='be verbose')
-    parser_train.set_defaults(func=run_train)
+    parser_train.set_defaults(func=train_sentence_tokenizer)
 
     namespace = parser.parse_args(args)
     return namespace
