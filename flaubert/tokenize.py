@@ -66,7 +66,7 @@ DEFAULT_FEATURE_MAP = u"""
 |
 (?P<STARRATING>((?:(?:\\s\\-)?[0-9]{1,2})|(?:\\*\\s?)+|%(number)s)(\\.[0-9]+|[\\s-]*[1-9]\\s?\\/\\s?[1-9])?\\s*(?:stars?(?:\\s+rating)?)?\\s*(?:\\/\\s*|\\(?(?:out\\s+)?of\\s+)((?:4|5|100?|four|five|ten)\\b|(?:\\*\\s?)+)(?:\\s+stars)?)
 |
-(?P<STARRATING_TEN>\\b(?:a|full)\\s10\\b)
+(?P<STARRATING_TEN>\\b(?:full\\s10|a\\s10\\sfor)\\b)
 |
 (?P<STARRATING_X>\\b(?:a|my)\\s+(\\-?[0-9](?:\\.[0-9])?)[\\s-]+(?:star\\s+)?rating\\b)
 |
