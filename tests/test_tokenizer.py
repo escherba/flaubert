@@ -217,6 +217,11 @@ class TestFeatureTokens(unittest.TestCase, SetComparisonMixin):
         tokens = self.tokenize(text)
         self.assertSetContainsSubset([u'<6/10>'], tokens)
 
+    def test_rating_17(self):
+        text = u"i gave this movie a 2 for the actors"
+        tokens = self.tokenize(text)
+        self.assertSetContainsSubset([u'<2/10>'], tokens)
+
     def test_grade_1(self):
         text = u"can save this boring, Grade B+ western."
         tokens = self.tokenize(text)
