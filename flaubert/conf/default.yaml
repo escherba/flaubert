@@ -40,7 +40,8 @@ pretrain:
 train:
     classifier: 'svm'
     scoring: 'f1'
-    features: ["bow", "word2vec"]    # either doc2vec or word2vec
+    features: ["bow"]    # either doc2vec or word2vec
+    nltk_stop_words: null  # either null or "english" or others...
 
 word2vec:
     sg: 1               # 1 for skip-gram (default), cbow otherwise

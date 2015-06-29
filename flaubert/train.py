@@ -17,6 +17,7 @@ from sklearn.feature_extraction import DictVectorizer
 from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.pipeline import FeatureUnion, Pipeline
 from sklearn.linear_model import LogisticRegression
+from nltk.corpus import stopwords
 from pymaptools.io import PathArgumentParser, GzipFileType, read_json_lines
 from flaubert.preprocess import read_tsv
 from flaubert.pretrain import sentence_iter
@@ -58,6 +59,12 @@ class ItemSelector(BaseEstimator, TransformerMixin):
         return data_dict[self.key]
 
 
+if CONFIG['train']['nltk_stop_words']:
+    STOP_WORDS = frozenset(stopwords.words(CONFIG['train']['nltk_stop_words']))
+else:
+    STOP_WORDS = frozenset([])
+
+
 def makeFeatureVec(words, model, num_features):
     """
     average all of the word vectors in a given paragraph
@@ -66,6 +73,8 @@ def makeFeatureVec(words, model, num_features):
     vector = np.zeros((num_features,), dtype="float32")
     nwords = 0
     for word in words:
+        if word in STOP_WORDS:
+            continue
         try:
             word_vector = model[word]
         except KeyError:
@@ -119,7 +128,7 @@ def get_doc2vec_features(document_iter, model):
 
 def get_bow_features(documents):
     # TODO: replace this with a Pipeline
-    data = [Counter(chain(*doc)) for doc in documents]
+    data = [Counter(w for w in chain(*doc) if w not in STOP_WORDS) for doc in documents]
     vectorizer = DictVectorizer()
     train_data_features = vectorizer.fit_transform(data)
     transformer = TfidfTransformer()
