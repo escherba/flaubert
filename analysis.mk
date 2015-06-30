@@ -17,24 +17,27 @@ SENTS := $(ALL_DATA:.tsv.zip=.sents.gz)
 clean_data:
 	rm -rf $(SENTS) $(WORDS) $(EMBEDDING)
 
-sentences: $(SENTS) | env
+nltk: $(NLTK_DIR_DONE)
 	@echo "done"
 
-nltk: $(NLTK_DIR_DONE)
+preprocess: $(SENTS) | env
 	@echo "done"
 
 pretrain: $(EMBEDDING)
 	@echo "done"
-
-.SECONDARY: $(TSVS) $(SENT_TOKENIZER) $(WORDS) $(SENTS) $(EMBEDDING)
-%.tsv: %.tsv.zip
-	unzip -p $< > $@
 
 train: $(LABELED_TRAIN).tsv $(LABELED_TRAIN).sents.gz $(EMBEDDING)
 	$(PYTHON) -m flaubert.train \
 		--embedding $(EMBEDDING) \
 		--train $(LABELED_TRAIN).tsv \
 		--sentences $(LABELED_TRAIN).sents.gz
+
+train_vectors:
+	$(PYTHON) -m flaubert.train --vectors data/imdb-old.pkl
+
+.SECONDARY: $(TSVS) $(SENT_TOKENIZER) $(WORDS) $(SENTS) $(EMBEDDING)
+%.tsv: %.tsv.zip
+	unzip -p $< > $@
 
 $(EMBEDDING): $(LABELED_TRAIN).sents.gz $(UNLABELED_TRAIN).sents.gz
 	@echo "Building embedding model at $(EMBEDDING)"

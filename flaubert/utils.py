@@ -1,5 +1,11 @@
-import pandas as pd
+import pandas
+import numpy as np
 from nltk.stem import wordnet
+from scipy.sparse import dok_matrix
+from fastcache import clru_cache
+from sklearn.base import BaseEstimator, TransformerMixin
+from pymaptools.vectorize import enumerator
+from pymaptools.iter import isiterable
 
 
 TREEBANK2WORDNET = {
@@ -11,10 +17,55 @@ TREEBANK2WORDNET = {
 
 
 def read_tsv(file_input, iterator=False, chunksize=None):
-    return pd.read_csv(
+    """
+    @rtype: pandas.core.frame.DataFrame
+    """
+    return pandas.read_csv(
         file_input, iterator=iterator, chunksize=chunksize,
         header=0, quoting=2, delimiter="\t", escapechar="\\", quotechar='"',
         encoding="utf-8")
+
+
+def pd_row_iter(datasets, chunksize=1000):
+    """Produce an iterator over rows in Pandas
+    dataframe while reading from files on disk
+
+    @param datasets: a list of filenames or file handles
+    @param chunksize: how many lines to read at once
+    """
+    # ensure that silly values of chunksize don't get passed
+    if not chunksize:
+        chunksize = 1
+    if not isiterable(datasets):
+        datasets = [datasets]
+    for dataset in datasets:
+        for chunk in read_tsv(dataset, iterator=True, chunksize=chunksize):
+            for row in chunk.iterrows():
+                yield row
+
+
+def pd_dict_iter(datasets, chunksize=1000):
+    for idx, row in pd_row_iter(datasets, chunksize=chunksize):
+        yield dict(row)
+
+
+def pd_field_iter(field, datasets, chunksize=1000):
+    """Produce an iterator over values for a particular field in Pandas
+    dataframe while reading from files on disk
+
+    @param field: a string specifying field name of interest
+    @param datasets: a list of filenames or file handles
+    @param chunksize: how many lines to read at once
+    """
+    for row in pd_row_iter(datasets, chunksize=chunksize):
+        yield row[field]
+
+
+def lru_wrap(func, cache_size=None):
+    if cache_size:
+        return clru_cache(maxsize=cache_size)(func)
+    else:
+        return func
 
 
 def treebank2wordnet(treebank_tag):
@@ -31,3 +82,69 @@ def sum_dicts(*args):
     for arg in args:
         result.update(arg)
     return result
+
+
+class ItemSelector(BaseEstimator, TransformerMixin):
+    """For data grouped by feature, select subset of data at a provided key.
+    The data is expected to be stored in a 2D data structure, where the first
+    index is over features and the second is over samples.  i.e.
+    >> len(data[key]) == n_samples
+    Please note that this is the opposite convention to sklearn feature
+    matrixes (where the first index corresponds to sample).
+    ItemSelector only requires that the collection implement getitem
+    (data[key]).  Examples include: a dict of lists, 2D numpy array, Pandas
+    DataFrame, numpy record array, etc.
+    >> data = {'a': [1, 5, 2, 5, 2, 8],
+               'b': [9, 4, 1, 4, 1, 3]}
+    >> ds = ItemSelector(key='a')
+    >> data['a'] == ds.transform(data)
+    ItemSelector is not designed to handle data grouped by sample.  (e.g. a
+    list of dicts).  If your data is structured this way, consider a
+    transformer along the lines of `sklearn.feature_extraction.DictVectorizer`.
+    Parameters
+    ----------
+    key : hashable, required
+        The key corresponding to the desired value in a mappable.
+    """
+    def __init__(self, key):
+        self.key = key
+
+    def fit(self, x, y=None):
+        return self
+
+    def transform(self, data_dict):
+        return data_dict[self.key]
+
+
+class BagVectorizer(BaseEstimator, TransformerMixin):
+
+    """Transform an array of word bags into a sparse matrix
+
+    Similar to DictVectorizer except taks list of lists instead
+    of list of dicts and can be pre-initialized with a vocabulary
+    """
+    def __init__(self, vocabulary=None):
+        self.vocabulary_ = vocabulary
+
+    def fit(self, X, y=None):
+        enum = self.vocabulary_ or enumerator()
+        for row in X:
+            for lbl in row:
+                enum[lbl]
+        self.vocabulary_ = enum
+        self.feature_names_ = enum.keys()
+        return self
+
+    def transform(self, X, y=None):
+
+        enum = self.vocabulary_
+        shape = (len(X), len(self.vocabulary_))
+        mat = dok_matrix(shape, dtype=np.int32)
+        for idx, row in enumerate(X):
+            for word in row:
+                mat[idx, enum[word]] = 1
+        self.feature_names_ = enum.keys()
+        return mat.tocsr()
+
+    def get_feature_names(self):
+        return self.feature_names_

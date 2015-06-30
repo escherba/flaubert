@@ -117,6 +117,21 @@ class TestFeatureTokens(unittest.TestCase, SetComparisonMixin):
             [u'a', u'dummy', u'comment', u'with', u'<URI>', u'and', u'<EMAIL>'],
             tokens)
 
+    def test_contraction(self):
+        text = u"Daniel's life isn't great"
+        tokens = self.tokenize(text)
+        self.assertSetContainsSubset([u'daniel', u"'s", u'be', u"n't"], tokens)
+
+    def test_contraction_lookalike(self):
+        text = u"abr'acad'a'bra"
+        tokens = self.tokenize(text)
+        self.assertEqual(text, u"'".join(tokens))
+
+    def test_special_3d(self):
+        text = u"3-d (3D) effect"
+        tokens = self.tokenize(text)
+        self.assertListEqual([u"<3D>", u"<3D>", u"effect"], tokens)
+
     def test_rating_false_0(self):
         text = u"I re-lived 1939/40 and my own evacuation from London"
         tokens = self.tokenize(text)
