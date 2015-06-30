@@ -1,7 +1,10 @@
 import pandas
+import numpy as np
 from nltk.stem import wordnet
+from scipy.sparse import dok_matrix
 from fastcache import clru_cache
 from sklearn.base import BaseEstimator, TransformerMixin
+from pymaptools.vectorize import enumerator
 from pymaptools.iter import isiterable
 
 
@@ -111,3 +114,37 @@ class ItemSelector(BaseEstimator, TransformerMixin):
 
     def transform(self, data_dict):
         return data_dict[self.key]
+
+
+class BagVectorizer(BaseEstimator, TransformerMixin):
+
+    """Transform an array of word bags into a sparse matrix
+
+    Similar to DictVectorizer except taks list of lists instead
+    of list of dicts and can be pre-initialized with a vocabulary
+    """
+    def __init__(self, vocabulary=None):
+        self.vocabulary_ = vocabulary
+
+    def fit(self, X, y=None):
+        enum = self.vocabulary_ or enumerator()
+        for row in X:
+            for lbl in row:
+                enum[lbl]
+        self.vocabulary_ = enum
+        self.feature_names_ = enum.keys()
+        return self
+
+    def transform(self, X, y=None):
+
+        enum = self.vocabulary_
+        shape = (len(X), len(self.vocabulary_))
+        mat = dok_matrix(shape, dtype=np.int32)
+        for idx, row in enumerate(X):
+            for word in row:
+                mat[idx, enum[word]] = 1
+        self.feature_names_ = enum.keys()
+        return mat.tocsr()
+
+    def get_feature_names(self):
+        return self.feature_names_

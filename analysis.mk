@@ -32,6 +32,9 @@ train: $(LABELED_TRAIN).tsv $(LABELED_TRAIN).sents.gz $(EMBEDDING)
 		--train $(LABELED_TRAIN).tsv \
 		--sentences $(LABELED_TRAIN).sents.gz
 
+train_vectors:
+	$(PYTHON) -m flaubert.train --vectors data/imdb-old.pkl
+
 .SECONDARY: $(TSVS) $(SENT_TOKENIZER) $(WORDS) $(SENTS) $(EMBEDDING)
 %.tsv: %.tsv.zip
 	unzip -p $< > $@

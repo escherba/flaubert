@@ -11,11 +11,10 @@ from pymaptools.vectorize import enumerator
 from pymaptools.io import GzipFileType, read_json_lines
 
 
-def vectorize_sentences(input_iter):
+def vectorize_sentences(enum, input_iter):
     for obj in input_iter:
         sentiment = obj['sentiment']
         review = obj['review']
-        enum = enumerator()
         doc = [enum[w] for w in chain(*review)]
         yield (doc, sentiment)
 
@@ -31,7 +30,8 @@ def parse_args(args=None):
 
 
 def run(args):
-    data = list(vectorize_sentences(chain(*(read_json_lines(fn) for fn in args.input))))
+    enum = enumerator()
+    data = list(vectorize_sentences(enum, chain(*(read_json_lines(fn) for fn in args.input))))
     X, y = zip(*data)
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=0)

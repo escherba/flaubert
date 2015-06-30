@@ -2,6 +2,7 @@ from __future__ import print_function
 
 import numpy as np
 import logging
+import cPickle as pickle
 from itertools import chain, izip
 from collections import Counter
 from gensim.models import word2vec
@@ -17,9 +18,9 @@ from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.pipeline import FeatureUnion, Pipeline
 from sklearn.linear_model import LogisticRegression
 from nltk.corpus import stopwords
-from pymaptools.io import PathArgumentParser, GzipFileType, read_json_lines
+from pymaptools.io import PathArgumentParser, GzipFileType, read_json_lines, open_gz
 from flaubert.pretrain import sentence_iter
-from flaubert.utils import ItemSelector, read_tsv
+from flaubert.utils import ItemSelector, read_tsv, BagVectorizer
 from flaubert.conf import CONFIG
 
 
@@ -215,15 +216,12 @@ def drop_nans(X, y):
     return X, y
 
 
-def train_model(args, y, X, is_mixed=False):
+def train_model(args, X_train, X_test, y_train, y_test, is_mixed=False):
     # TODO: use Hyperopt for hyperparameter search
     # Split the dataset
 
     # X and y arrays must have matching numbers of rows
     # assert X.shape[0] == y.shape[0]
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=0)
 
     scoring = CONFIG['train']['scoring']
     print("# Tuning hyper-parameters for %s (classifier: %s)" % (scoring, CONFIG['train']['classifier']))
@@ -286,12 +284,14 @@ def parse_args(args=None):
     parser = PathArgumentParser()
     parser.add_argument('--embedding', type=str, metavar='FILE', default=None,
                         help='Input word2vec (or doc2vec) model')
-    parser.add_argument('--train', type=str, metavar='FILE', required=True,
+    parser.add_argument('--train', type=str, metavar='FILE', default=None,
                         help='(Labeled) training set')
     parser.add_argument('--plot_features', type=str, default=None,
                         help='file to save feature comparison to')
-    parser.add_argument('--sentences', type=GzipFileType('r'), required=True,
+    parser.add_argument('--sentences', type=GzipFileType('r'), default=None,
                         help='File containing sentences in JSON format (implies doc2vec)')
+    parser.add_argument('--vectors', metavar='FILE', type=str, default=None,
+                        help='File containing sentence vectors in Pickle format')
     namespace = parser.parse_args(args)
     return namespace
 
@@ -330,17 +330,33 @@ def get_data(args):
         return False, drop_nans(embedding_vectors, y_labels)
 
 
+def get_data_alt(args):
+    with open_gz(args.vectors, "rb") as fh:
+        train_X, train_y = pickle.load(fh)
+        test_X, test_y = pickle.load(fh)
+    vect = BagVectorizer().fit(train_X).fit(test_X)
+    train_X = vect.transform(train_X)
+    test_X = vect.transform(test_X)
+    return train_X, test_X, np.asarray(train_y), np.asarray(test_y)
+
+
 def run(args):
 
-    # load embedding
-    data = get_data(args)
-    is_mixed, (feature_vectors, y_labels) = data
-
-    # train a classifier
     if args.plot_features:
-        feat_imp(args, y_labels, feature_vectors)
+        assert not args.vectors
+        data = get_data(args)
+        is_mixed, (X, y) = data
+        feat_imp(args, y, X)
     else:
-        train_model(args, y_labels, feature_vectors, is_mixed=is_mixed)
+        if args.vectors:
+            data = False, get_data_alt(args)
+            is_mixed, (X_train, X_test, y_train, y_test) = data
+        else:
+            data = get_data(args)
+            is_mixed, (X, y) = data
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y, test_size=0.2, random_state=0)
+        train_model(args, X_train, X_test, y_train, y_test, is_mixed=is_mixed)
 
 
 if __name__ == "__main__":
