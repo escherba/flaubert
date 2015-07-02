@@ -27,6 +27,13 @@ EN_APO_CONTRACTIONS = frozenset([
     u'll', u'd', u're', u't', u'm', u've', u's'
 ])
 
+CONTRACTION_FIRST_MAP = {
+    u"wo": u'will',
+    u"sha": u'shall',
+    u"ca": u"can",
+    u"ai": u"am"
+}
+
 
 def count_stars(num_stars):
     dec_num_stars = NUM2DEC.get(num_stars)
@@ -186,10 +193,16 @@ class RegexpFeatureTokenizer(object):
         """
         first = match.group(match.lastindex + 1)
         second = match.group(match.lastindex + 2)
-        yield first
         if second in EN_APO_CONTRACTIONS:
-            yield u"'" + second
+            if second == u"t" and first[-1] == u"n":
+                firstp = first[0:-1]
+                yield CONTRACTION_FIRST_MAP.get(firstp, firstp)
+                yield u"n't"
+            else:
+                yield first
+                yield u"'" + second
         else:
+            yield first
             yield second
 
     def handle_emotic_west_left(self, match, *args):

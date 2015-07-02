@@ -55,12 +55,12 @@ class TestFeatureTokens(unittest.TestCase, SetComparisonMixin):
     def test_western_emoticons_happy(self):
         """With custom features removed, this text should be idempotent on tokenization
         """
-        text = u":-) :) =) =)) :=) >:) :] :') :^) (: [: ((= (= (=: <3 :-p :D :o"
+        text = u":-) :) =) =)) :=) >:) :] :') :^) (: [: ((= (= (=: :-p :D :o"
         tokens = self.tokenize(text)
         reconstructed = u' '.join(token for token in tokens if not token.startswith(u"<EMOTIC"))
         self.assertEqual(text.lower(), reconstructed)
         group_names = [m.lastgroup for m in zip(*self.base_tokenizer.tokenize(text))[1]]
-        self.assertEqual(36, count_prefix(u"EMOTIC", group_names))
+        self.assertEqual(34, count_prefix(u"EMOTIC", group_names))
 
     def test_western_emoticons_sad(self):
         """With custom features removed, this text should be idempotent on tokenization
@@ -72,6 +72,19 @@ class TestFeatureTokens(unittest.TestCase, SetComparisonMixin):
 
         group_names = [m.lastgroup for m in zip(*self.base_tokenizer.tokenize(text))[1]]
         self.assertEqual(34, count_prefix(u"EMOTIC", group_names))
+
+    def test_hearts(self):
+        """With custom features removed, this text should be idempotent on tokenization
+        """
+        text = u"<3 full heart </3 heartbreak"
+        tokens = self.tokenize(text)
+        reconstructed = u' '.join(token for token in tokens if not token.startswith(u"<EMOTIC"))
+        self.assertEqual(text.lower(), reconstructed)
+
+        group_names = [m.lastgroup for m in zip(*self.base_tokenizer.tokenize(text))[1]]
+        self.assertSetContainsSubset([u'<3', u'<EMOTIC_HEART_HAPPY>', u'</3', u'<EMOTIC_HEART_SAD>'],
+                                     tokens)
+        self.assertEqual(4, count_prefix(u"EMOTIC", group_names))
 
     def test_no_emoticon(self):
         """No emoticon should be detected in this text
@@ -116,6 +129,21 @@ class TestFeatureTokens(unittest.TestCase, SetComparisonMixin):
         self.assertListEqual(
             [u'a', u'dummy', u'comment', u'with', u'<URI>', u'and', u'<EMAIL>'],
             tokens)
+
+    def test_contraction(self):
+        text = u"Daniel's life isn't great"
+        tokens = self.tokenize(text)
+        self.assertSetContainsSubset([u'daniel', u"'s", u'be', u"n't"], tokens)
+
+    def test_contraction_lookalike(self):
+        text = u"abr'acad'a'bra"
+        tokens = self.tokenize(text)
+        self.assertEqual(text, u"'".join(tokens))
+
+    def test_special_3d(self):
+        text = u"3-d (3D) effect"
+        tokens = self.tokenize(text)
+        self.assertListEqual([u"<3D>", u"<3D>", u"effect"], tokens)
 
     def test_rating_false_0(self):
         text = u"I re-lived 1939/40 and my own evacuation from London"

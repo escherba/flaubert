@@ -26,6 +26,8 @@ entityref = re.compile('&([a-zA-Z][-.a-zA-Z0-9]*)[^a-zA-Z0-9]')
 charref = re.compile('&#(?:[0-9]+|[xX][0-9a-fA-F]+)[^0-9a-fA-F]')
 
 starttagopen = re.compile('<[a-zA-Z]')
+endtagclose = re.compile('</(?:\s*[a-zA-Z][-.a-zA-Z0-9:_]*|$)')
+
 piclose = re.compile('>')
 commentclose = re.compile(r'--\s*>')
 
@@ -165,7 +167,7 @@ class HTMLParser(markupbase.ParserBase):
             if startswith('<', i):
                 if starttagopen.match(rawdata, i): # < + letter
                     k = self.parse_starttag(i)
-                elif startswith("</", i):
+                elif endtagclose.match(rawdata, i):  # </
                     k = self.parse_endtag(i)
                 elif startswith("<!--", i):
                     k = self.parse_comment(i)
