@@ -55,12 +55,12 @@ class TestFeatureTokens(unittest.TestCase, SetComparisonMixin):
     def test_western_emoticons_happy(self):
         """With custom features removed, this text should be idempotent on tokenization
         """
-        text = u":-) :) =) =)) :=) >:) :] :') :^) (: [: ((= (= (=: <3 :-p :D :o"
+        text = u":-) :) =) =)) :=) >:) :] :') :^) (: [: ((= (= (=: :-p :D :o"
         tokens = self.tokenize(text)
         reconstructed = u' '.join(token for token in tokens if not token.startswith(u"<EMOTIC"))
         self.assertEqual(text.lower(), reconstructed)
         group_names = [m.lastgroup for m in zip(*self.base_tokenizer.tokenize(text))[1]]
-        self.assertEqual(36, count_prefix(u"EMOTIC", group_names))
+        self.assertEqual(34, count_prefix(u"EMOTIC", group_names))
 
     def test_western_emoticons_sad(self):
         """With custom features removed, this text should be idempotent on tokenization
@@ -72,6 +72,19 @@ class TestFeatureTokens(unittest.TestCase, SetComparisonMixin):
 
         group_names = [m.lastgroup for m in zip(*self.base_tokenizer.tokenize(text))[1]]
         self.assertEqual(34, count_prefix(u"EMOTIC", group_names))
+
+    def test_hearts(self):
+        """With custom features removed, this text should be idempotent on tokenization
+        """
+        text = u"<3 full heart </3 heartbreak"
+        tokens = self.tokenize(text)
+        reconstructed = u' '.join(token for token in tokens if not token.startswith(u"<EMOTIC"))
+        self.assertEqual(text.lower(), reconstructed)
+
+        group_names = [m.lastgroup for m in zip(*self.base_tokenizer.tokenize(text))[1]]
+        self.assertSetContainsSubset([u'<3', u'<EMOTIC_HEART_HAPPY>', u'</3', u'<EMOTIC_HEART_SAD>'],
+                                     tokens)
+        self.assertEqual(4, count_prefix(u"EMOTIC", group_names))
 
     def test_no_emoticon(self):
         """No emoticon should be detected in this text
