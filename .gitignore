@@ -61,6 +61,7 @@ target/
 
 nltk_data/
 data/
+data
 
 # Domino
 .domino/
