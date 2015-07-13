@@ -31,17 +31,17 @@ from __future__ import absolute_import
 from __future__ import print_function
 
 import numpy as np
-import theano
+#import theano
 import os
 import re
 import json
 
 from keras.preprocessing import sequence, text
-from keras.optimizers import SGD, RMSprop, Adagrad
+#from keras.optimizers import SGD, RMSprop, Adagrad
 from keras.utils import np_utils, generic_utils
 from keras.models import Sequential
-from keras.layers.embeddings import WordContextProduct, Embedding
-from six.moves import range, zip, cPickle
+from keras.layers.embeddings import WordContextProduct  #, Embedding
+from six.moves import range, cPickle
 from pymaptools.io import open_gz
 
 max_features = 50000  # vocabulary size: top 50,000 most common words in data
@@ -175,7 +175,8 @@ def embed_word(w):
 
 def closest_to_point(point, nb_closest=10):
     proximities = np.dot(norm_weights, point)
-    tups = list(zip(list(range(len(proximities))), proximities))
+    #tups = list(zip(list(range(len(proximities))), proximities))
+    tups = list(enumerate(proximities))
     tups.sort(key=lambda x: x[1], reverse=True)
     return [(reverse_word_index.get(t[0]), t[1]) for t in tups[:nb_closest]]
 
