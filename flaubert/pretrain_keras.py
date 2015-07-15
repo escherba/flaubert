@@ -31,17 +31,19 @@ from __future__ import absolute_import
 from __future__ import print_function
 
 import numpy as np
-#import theano
+import theano
+import six.moves.cPickle
 import os
 import re
 import json
 
-from keras.preprocessing import sequence, text
-#from keras.optimizers import SGD, RMSprop, Adagrad
+from flaubert.keras_prep import sequence, text
+from keras.optimizers import SGD, RMSprop, Adagrad
 from keras.utils import np_utils, generic_utils
 from keras.models import Sequential
-from keras.layers.embeddings import WordContextProduct  #, Embedding
-from six.moves import range, cPickle
+from keras.layers.embeddings import WordContextProduct, Embedding
+from six.moves import range
+
 from pymaptools.io import open_gz
 
 max_features = 50000  # vocabulary size: top 50,000 most common words in data
@@ -60,7 +62,7 @@ model_load_fname = "HN_skipgram_model.pkl"
 model_save_fname = "HN_skipgram_model.pkl"
 tokenizer_fname = "HN_tokenizer.pkl"
 
-data_path = os.path.expanduser("~/") + "HNCommentsAll.1perline.json"
+data_path = os.path.join("/media/data/escherba/hn", "HNComments10000.1perline.json.bz2")
 
 # text preprocessing utils
 html_tags = re.compile(r'<.*?>')
@@ -91,8 +93,7 @@ def text_generator(path=data_path):
 # model management
 if load_tokenizer:
     print('Load tokenizer...')
-    with open_gz(os.path.join(save_dir, tokenizer_fname), 'rb') as fh:
-        tokenizer = cPickle.load(fh)
+    tokenizer = six.moves.cPickle.load(open(os.path.join(save_dir, tokenizer_fname), 'rb'))
 else:
     print("Fit tokenizer...")
     tokenizer = text.Tokenizer(nb_words=max_features)
@@ -101,15 +102,13 @@ else:
         print("Save tokenizer...")
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
-        with open_gz(os.path.join(save_dir, tokenizer_fname), "wb") as fh:
-            cPickle.dump(tokenizer, fh)
+        six.moves.cPickle.dump(tokenizer, open(os.path.join(save_dir, tokenizer_fname), "wb"))
 
 # training process
 if train_model:
     if load_model:
         print('Load model...')
-        with open_gz(os.path.join(save_dir, model_load_fname), 'rb') as fh:
-            model = cPickle.load(fh)
+        model = six.moves.cPickle.load(open(os.path.join(save_dir, model_load_fname), 'rb'))
     else:
         print('Build model...')
         model = Sequential()
@@ -119,9 +118,9 @@ if train_model:
     sampling_table = sequence.make_sampling_table(max_features)
 
     for e in range(nb_epoch):
-        print('-' * 40)
+        print('-'*40)
         print('Epoch', e)
-        print('-' * 40)
+        print('-'*40)
 
         progbar = generic_utils.Progbar(tokenizer.document_count)
         samples_seen = 0
@@ -129,6 +128,7 @@ if train_model:
 
         for i, seq in enumerate(tokenizer.texts_to_sequences_generator(text_generator())):
             # get skipgram couples for one text in the dataset
+            import pdb; pdb.set_trace()  # XXX BREAKPOINT
             couples, labels = sequence.skipgrams(seq, max_features, window_size=4, negative_samples=1., sampling_table=sampling_table)
             if couples:
                 # one gradient update per sentence (one sentence = a few 1000s of word couples)
@@ -146,8 +146,7 @@ if train_model:
         print("Saving model...")
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
-        with open_gz(os.path.join(save_dir, model_save_fname), "wb") as fh:
-            cPickle.dump(model, fh)
+        six.moves.cPickle.dump(model, open(os.path.join(save_dir, model_save_fname), "wb"))
 
 
 print("It's test time!")
@@ -175,7 +174,6 @@ def embed_word(w):
 
 def closest_to_point(point, nb_closest=10):
     proximities = np.dot(norm_weights, point)
-    #tups = list(zip(list(range(len(proximities))), proximities))
     tups = list(enumerate(proximities))
     tups.sort(key=lambda x: x[1], reverse=True)
     return [(reverse_word_index.get(t[0]), t[1]) for t in tups[:nb_closest]]
