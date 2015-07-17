@@ -21,9 +21,10 @@ from flaubert.conf import CONFIG
 from flaubert.HTMLParser import HTMLParser, HTMLParseError
 from flaubert.utils import treebank2wordnet, lru_wrap, pd_dict_iter
 from flaubert.unicode_maps import EXTRA_TRANSLATE_MAP
+from flaubert.punkt import PunktTrainer, PunktLanguageVars, PunktSentenceTokenizer
 
 
-logging.basicConfig(level=logging.WARN)
+logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger(__name__)
 
 
@@ -247,29 +248,8 @@ class SimpleSentenceTokenizer(object):
         self._stopwords = frozenset(stopwords.words(nltk_stop_words))
         self._url_parser = url_parser
 
-        self._sentence_tokenizer = None
-        if sentence_tokenizer is None:
-            self._sentence_tokenize = lambda x: [x]
-        elif sentence_tokenizer[0] == 'nltk_data':
-            punkt = nltk.data.load(sentence_tokenizer[1])
-            self._sentence_tokenize = punkt.tokenize
-        elif sentence_tokenizer[0] == 'data':
-            tokenizer_path = os.path.join('..', 'data', sentence_tokenizer[1])
-            tokenizer_path = resource_filename(__name__, tokenizer_path)
-            if os.path.exists(tokenizer_path):
-                with open_gz(tokenizer_path, 'rb') as fhandle:
-                    punkt = pickle.load(fhandle)
-                if add_abbrev_types:
-                    punkt._params.abbrev_types = punkt._params.abbrev_types | set(add_abbrev_types)
-                if del_sent_starters:
-                    punkt._params.sent_starters = punkt._params.sent_starters - set(del_sent_starters)
-                self._sentence_tokenize = punkt.sentences_from_text
-                self._sentence_tokenizer = punkt
-            else:
-                self._sentence_tokenize = lambda x: [x]
-                logging.warn("Tokenizer not found at %s" % tokenizer_path)
-        else:
-            raise ValueError("Invalid sentence tokenizer class")
+        self._sentence_tokenizer, self._sentence_tokenize = \
+            self.load_sent_tokenizer(sentence_tokenizer, add_abbrev_types, del_sent_starters)
 
         self.sentence_tokenizer = None
         self._lemmatize = lru_wrap(lemmatizer.lemmatize, lru_cache_size) if lemmatizer else None
@@ -296,6 +276,37 @@ class SimpleSentenceTokenizer(object):
         # tokenize a dummy string b/c lemmatizer and/or other tools can take
         # a while to initialize screwing up our attempts to measure performance
         self.tokenize(u"dummy string")
+
+    @staticmethod
+    def load_sent_tokenizer(sentence_tokenizer, add_abbrev_types=None, del_sent_starters=None):
+        _sentence_tokenizer = None
+        _sentence_tokenize = lambda x: [x]
+        if sentence_tokenizer is not None:
+            if sentence_tokenizer[0] == 'nltk_data':
+                punkt = nltk.data.load(sentence_tokenizer[1])
+                # TODO: why was the (now commented-out) line below here?
+                # return punkt, punkt.tokenize
+                return punkt, punkt.sentences_from_text
+            elif sentence_tokenizer[0] == 'data':
+                tokenizer_path = os.path.join('..', 'data', sentence_tokenizer[1])
+                tokenizer_path = resource_filename(__name__, tokenizer_path)
+                if os.path.exists(tokenizer_path):
+                    with open_gz(tokenizer_path, 'rb') as fhandle:
+                        try:
+                            punkt = pickle.load(fhandle)
+                        except EOFError:
+                            logging.warn("Could not load tokenizer from %s", tokenizer_path)
+                            return _sentence_tokenizer, _sentence_tokenize
+                    if add_abbrev_types:
+                        punkt._params.abbrev_types = punkt._params.abbrev_types | set(add_abbrev_types)
+                    if del_sent_starters:
+                        punkt._params.sent_starters = punkt._params.sent_starters - set(del_sent_starters)
+                    return punkt, punkt.sentences_from_text
+                else:
+                    logging.warn("Tokenizer not found at %s", tokenizer_path)
+            else:
+                raise ValueError("Invalid sentence tokenizer class")
+        return _sentence_tokenizer, _sentence_tokenize
 
     @staticmethod
     def _identity(arg):
@@ -393,6 +404,40 @@ class SimpleSentenceTokenizer(object):
 
     tokenize = word_tokenize
 
+    def train_sentence_model(self, iterator, verbose=False, show_progress=1000):
+        reviews = []
+        for idx, review in enumerate(iterator, start=1):
+            if show_progress and idx % show_progress == 0:
+                logging.info("Processing review %d", idx)
+            review = self.preprocess(review, lowercase=False).strip()
+            if not review.endswith(u'.'):
+                review += u'.'
+            reviews.append(review)
+        text = u'\n\n'.join(reviews)
+        custom_lang_vars = PunktLanguageVars
+        custom_lang_vars.sent_end_chars = ('.', '?', '!')
+
+        # TODO: check if we need to manually specify common abbreviations
+        punkt = PunktTrainer(verbose=verbose, lang_vars=custom_lang_vars())
+        abbrev_sent = u'Start %s end.' % u' '.join(CONFIG['tokenizer']['add_abbrev_types'])
+        punkt.train(abbrev_sent, finalize=False)
+        punkt.train(text, finalize=False)
+        punkt.finalize_training()
+        params = punkt.get_params()
+        if self._sentence_tokenizer:
+            self._sentence_tokenizer._params = params
+        else:
+            model = PunktSentenceTokenizer()
+            model._params = params
+            self._sentence_tokenizer = model
+            self._sentence_tokenize = model.sentences_from_tokens
+
+    def train(self, iterator, verbose=False, show_progress=1000):
+        self.train_sentence_model(iterator, verbose=verbose, show_progress=show_progress)
+
+    def save_sentence_model(self, output_file):
+        pickle.dump(self._sentence_tokenizer, output_file, protocol=pickle.HIGHEST_PROTOCOL)
+
 
 def registry(key):
     """
@@ -466,27 +511,10 @@ def run_tokenize(args):
 
 
 def train_sentence_tokenizer(args):
-    from flaubert.punkt import PunktTrainer, \
-        PunktLanguageVars, PunktSentenceTokenizer
-    iterator = get_review_iterator(args)
-    reviews = []
-    for review in iterator:
-        review = TOKENIZER.preprocess(review, lowercase=False).strip()
-        if not review.endswith(u'.'):
-            review += u'.'
-        reviews.append(review)
-    text = u'\n\n'.join(reviews)
-    custom_lang_vars = PunktLanguageVars
-    custom_lang_vars.sent_end_chars = ('.', '?', '!')
-
-    # TODO: check if we need to manually specify common abbreviations
-    punkt = PunktTrainer(verbose=args.verbose, lang_vars=custom_lang_vars())
-    abbrev_sent = u'Start %s end.' % u' '.join(CONFIG['tokenizer']['add_abbrev_types'])
-    punkt.train(abbrev_sent, finalize=False)
-    punkt.train(text, finalize=False)
-    punkt.finalize_training()
-    model = PunktSentenceTokenizer(punkt.get_params())
-    pickle.dump(model, args.output, protocol=pickle.HIGHEST_PROTOCOL)
+    field = args.field
+    iterator = (obj[field] for obj in get_review_iterator(args))
+    TOKENIZER.train(iterator, verbose=args.verbose)
+    TOKENIZER.save_sentence_model(args.output)
 
 
 def parse_args(args=None):
