@@ -36,7 +36,6 @@ import os
 import re
 import json
 
-from six.moves import cPickle as pickle
 from flaubert.pretrain import get_sentences
 from flaubert.keras_prep import sequence, text
 from keras.optimizers import SGD, RMSprop, Adagrad
@@ -45,16 +44,17 @@ from keras.models import Sequential
 from keras.layers.embeddings import WordContextProduct, Embedding
 from six.moves import range
 
-from pymaptools.io import open_gz, PathArgumentParser, read_json_lines, GzipFileType
+from pymaptools.io import open_gz, PathArgumentParser, read_json_lines, GzipFileType, \
+    pickle_dump, pickle_load
 
 max_features = 50000  # vocabulary size: top 50,000 most common words in data
 skip_top = 100        # ignore top 100 most common words
-nb_epoch = 10
+nb_epoch = 2
 dim_proj = 256        # embedding space dimension
 
 save = True
-load_model = False
-load_tokenizer = False
+load_model = True
+load_tokenizer = True
 train_model = True
 
 save_dir = os.path.expanduser("~/.keras/models")
@@ -87,12 +87,23 @@ def text_generator(path, field='comment_text'):
         yield clean_comment(comment_text)
 
 
-class BasicEmbeddingWrapper(object):
+class SimplePickle(object):
 
-    def __init__(self, word_index, norm_weights):
-        self.word_index = word_index
-        self.norm_weights = norm_weights
-        self.reverse_word_index = {v: k for k, v in word_index.iteritems()}
+    @classmethod
+    def load(cls, input_file):
+        model = pickle_load(input_file)
+        assert isinstance(model, cls)
+
+    def dump(self, output_file):
+        pickle_dump(self, output_file)
+
+
+class BasicEmbeddingWrapper(SimplePickle):
+
+    def __init__(self, word_index=None, norm_weights=None):
+        self.word_index = word_index or {}
+        self.norm_weights = norm_weights if len(norm_weights) > 0 else []
+        self.reverse_word_index = {v: k for k, v in list(word_index.items())}
 
     def embed_word(self, w):
         i = self.word_index.get(w)
@@ -180,7 +191,7 @@ def run(args):
     # model management
     if load_tokenizer:
         print('Load tokenizer...')
-        tokenizer = pickle.load(open(os.path.join(save_dir, tokenizer_fname), 'rb'))
+        tokenizer = pickle_load(os.path.join(save_dir, tokenizer_fname))
     else:
         print("Fit tokenizer...")
         tokenizer = text.Tokenizer(nb_words=max_features)
@@ -189,50 +200,50 @@ def run(args):
             print("Save tokenizer...")
             if not os.path.exists(save_dir):
                 os.makedirs(save_dir)
-            pickle.dump(tokenizer, open(os.path.join(save_dir, tokenizer_fname), "wb"))
+            pickle_dump(tokenizer, os.path.join(save_dir, tokenizer_fname))
 
     # training process
     if train_model:
         if load_model:
             print('Load model...')
-            model = pickle.load(open(os.path.join(save_dir, model_load_fname), 'rb'))
+            model = pickle_load(os.path.join(save_dir, model_load_fname))
         else:
             print('Build model...')
             model = Sequential()
             model.add(WordContextProduct(max_features, proj_dim=dim_proj, init="uniform"))
             model.compile(loss='mse', optimizer='rmsprop')
 
-        sampling_table = sequence.make_sampling_table(max_features)
+            sampling_table = sequence.make_sampling_table(max_features)
 
-        for e in range(nb_epoch):
-            print('-'*40)
-            print('Epoch', e)
-            print('-'*40)
+            for e in range(nb_epoch):
+                print('-' * 40)
+                print('Epoch', e)
+                print('-' * 40)
 
-            progbar = generic_utils.Progbar(tokenizer.document_count)
-            samples_seen = 0
-            losses = []
+                progbar = generic_utils.Progbar(tokenizer.document_count)
+                samples_seen = 0
+                losses = []
 
-            for i, seq in enumerate(tokenizer.texts_to_sequences_generator(get_text_generator(args))):
-                # get skipgram couples for one text in the dataset
-                couples, labels = sequence.skipgrams(seq, max_features, window_size=4, negative_samples=1., sampling_table=sampling_table)
-                if couples:
-                    # one gradient update per sentence (one sentence = a few 1000s of word couples)
-                    X = np.array(couples, dtype="int32")
-                    loss = model.train(X, labels)
-                    losses.append(loss)
-                    if len(losses) % 100 == 0:
-                        progbar.update(i, values=[("loss", np.mean(losses))])
-                        losses = []
-                    samples_seen += len(labels)
-            print('Samples seen:', samples_seen)
-        print("Training completed!")
+                for i, seq in enumerate(tokenizer.texts_to_sequences_generator(get_text_generator(args))):
+                    # get skipgram couples for one text in the dataset
+                    couples, labels = sequence.skipgrams(seq, max_features, window_size=4, negative_samples=1., sampling_table=sampling_table)
+                    if couples:
+                        # one gradient update per sentence (one sentence = a few 1000s of word couples)
+                        X = np.array(couples, dtype="int32")
+                        loss = model.train(X, labels)
+                        losses.append(loss)
+                        if len(losses) % 100 == 0:
+                            progbar.update(i, values=[("loss", np.mean(losses))])
+                            losses = []
+                        samples_seen += len(labels)
+                print('Samples seen:', samples_seen)
+            print("Training completed!")
 
-        if save:
-            print("Saving model...")
-            if not os.path.exists(save_dir):
-                os.makedirs(save_dir)
-            pickle.dump(model, open(os.path.join(save_dir, model_save_fname), "wb"))
+            if save:
+                print("Saving model...")
+                if not os.path.exists(save_dir):
+                    os.makedirs(save_dir)
+                pickle_dump(model, os.path.join(save_dir, model_save_fname))
 
     print("It's test time!")
 
@@ -251,16 +262,16 @@ def run(args):
         'word_index': word_index,
     }
 
-    final_model = BasicEmbeddingWrapper(*model_data)
+    simplified_model = BasicEmbeddingWrapper(**model_data)
 
     for w in words:
-        res = final_model.closest_to_word(w)
+        res = simplified_model.closest_to_word(w)
         print('====', w)
         for r in res:
             print(r)
 
     # save final model
-    pickle.dump(final_model, args.output, protocol=2)
+    simplified_model.dump(args.output)
 
 
 if __name__ == "__main__":
