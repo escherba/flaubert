@@ -32,9 +32,6 @@ from __future__ import print_function
 
 import numpy as np
 import theano
-import os
-import re
-import json
 
 from flaubert.pretrain import get_sentences
 from flaubert.keras_prep import sequence, text
@@ -44,47 +41,19 @@ from keras.models import Sequential
 from keras.layers.embeddings import WordContextProduct, Embedding
 from six.moves import range
 
-from pymaptools.io import open_gz, PathArgumentParser, read_json_lines, GzipFileType, \
-    pickle_dump, pickle_load
+from pymaptools.io import PathArgumentParser, pickle_dump, pickle_load
 
 max_features = 50000  # vocabulary size: top 50,000 most common words in data
 skip_top = 100        # ignore top 100 most common words
 nb_epoch = 2
 dim_proj = 256        # embedding space dimension
+negative_samples = 1.
+window_size = 4
+model_optimizer = 'rmsprop'
+model_loss = 'mse'
 
-save = True
-load_model = True
-load_tokenizer = True
-train_model = True
-
-save_dir = os.path.expanduser("~/.keras/models")
-if not os.path.exists(save_dir):
-    os.makedirs(save_dir)
-model_load_fname = "HN_skipgram_model.pkl"
-model_save_fname = "HN_skipgram_model.pkl"
-tokenizer_fname = "HN_tokenizer.pkl"
-
-#data_path = os.path.join("/media/data/escherba/hn", "HNComments10000.1perline.json.bz2")
-
-# text preprocessing utils
-html_tags = re.compile(r'<.*?>')
-to_replace = [('&#x27;', "'")]
-hex_tags = re.compile(r'&.*?;')
-
-
-def clean_comment(comment):
-    c = str(comment.encode("utf-8"))
-    c = html_tags.sub(' ', c)
-    for tag, char in to_replace:
-        c = c.replace(tag, char)
-    c = hex_tags.sub(' ', c)
-    return c
-
-
-def text_generator(path, field='comment_text'):
-    for obj in read_json_lines(path, show_progress=1000):
-        comment_text = obj[field]
-        yield clean_comment(comment_text)
+load_model = False
+load_tokenizer = False
 
 
 class SimplePickle(object):
@@ -126,14 +95,14 @@ class BasicEmbeddingWrapper(SimplePickle):
 
 ''' the resuls in comments below were for:
     5.8M HN comments
-    dim_proj = 256
-    nb_epoch = 2
-    optimizer = rmsprop
-    loss = mse
     max_features = 50000
     skip_top = 100
+    nb_epoch = 2
+    dim_proj = 256
     negative_samples = 1.
     window_size = 4
+    optimizer = rmsprop
+    loss = mse
     and frequency subsampling of factor 10e-5.
 '''
 
@@ -160,14 +129,18 @@ words = [
 
 def parse_args(args=None):
     parser = PathArgumentParser()
-    parser.add_argument('--hn_input', type=str, metavar='FILE', default=None,
-                        help='Input file')
-    parser.add_argument('--sentences', type=str, metavar='FILE', nargs='*',
-                        default=(), help='Input files')
+    parser.add_argument('--output', type=str, required=True,
+                        help='path to full model')
+    parser.add_argument('--simple_model', type=str, required=True,
+                        help='path to simple model')
+    parser.add_argument('--sentences', type=str, metavar='FILE', nargs='+',
+                        required=True, help='Input files')
+    parser.add_argument('--no_sentences', action='store_true',
+                        help='use docs instead of sentences')
+    parser.add_argument('--limit', type=int, default=None,
+                        help='how many sentences to limit input to')
     parser.add_argument('--field', type=str, default='review',
                         help='Field name (Default: review)')
-    parser.add_argument('--output', type=GzipFileType('w'), required=True,
-                        help='where to save the model to')
     namespace = parser.parse_args()
     return namespace
 
@@ -177,73 +150,52 @@ def get_texts(args):
         yield u' '.join(sent).encode('utf-8')
 
 
-def get_text_generator(args):
-    if args.hn_input:
-        return text_generator(args.hn_input)
-    elif args.sentences:
-        return get_texts(args)
-    else:
-        raise ValueError("You must specify --hn_input or --sentences")
-
-
 def run(args):
 
-    # model management
-    if load_tokenizer:
-        print('Load tokenizer...')
-        tokenizer = pickle_load(os.path.join(save_dir, tokenizer_fname))
-    else:
-        print("Fit tokenizer...")
-        tokenizer = text.Tokenizer(nb_words=max_features)
-        tokenizer.fit_on_texts(get_text_generator(args))
-        if save:
-            print("Save tokenizer...")
-            if not os.path.exists(save_dir):
-                os.makedirs(save_dir)
-            pickle_dump(tokenizer, os.path.join(save_dir, tokenizer_fname))
+    print("Fit tokenizer...")
+    tokenizer = text.Tokenizer(nb_words=max_features)
+    tokenizer.fit_on_texts(get_texts(args))
 
     # training process
-    if train_model:
-        if load_model:
-            print('Load model...')
-            model = pickle_load(os.path.join(save_dir, model_load_fname))
-        else:
-            print('Build model...')
-            model = Sequential()
-            model.add(WordContextProduct(max_features, proj_dim=dim_proj, init="uniform"))
-            model.compile(loss='mse', optimizer='rmsprop')
+    if load_model:
+        print('Load model...')
+        model = pickle_load(args.output)
+    else:
+        print('Build model...')
+        model = Sequential()
+        model.add(WordContextProduct(max_features, proj_dim=dim_proj, init="uniform"))
+        model.compile(loss=model_loss, optimizer=model_optimizer)
 
-            sampling_table = sequence.make_sampling_table(max_features)
+        sampling_table = sequence.make_sampling_table(max_features)
 
-            for e in range(nb_epoch):
-                print('-' * 40)
-                print('Epoch', e)
-                print('-' * 40)
+        for e in range(nb_epoch):
+            print('-' * 40)
+            print('Epoch', e)
+            print('-' * 40)
 
-                progbar = generic_utils.Progbar(tokenizer.document_count)
-                samples_seen = 0
-                losses = []
+            progbar = generic_utils.Progbar(tokenizer.document_count)
+            samples_seen = 0
+            losses = []
 
-                for i, seq in enumerate(tokenizer.texts_to_sequences_generator(get_text_generator(args))):
-                    # get skipgram couples for one text in the dataset
-                    couples, labels = sequence.skipgrams(seq, max_features, window_size=4, negative_samples=1., sampling_table=sampling_table)
-                    if couples:
-                        # one gradient update per sentence (one sentence = a few 1000s of word couples)
-                        X = np.array(couples, dtype="int32")
-                        loss = model.train(X, labels)
-                        losses.append(loss)
-                        if len(losses) % 100 == 0:
-                            progbar.update(i, values=[("loss", np.mean(losses))])
-                            losses = []
-                        samples_seen += len(labels)
-                print('Samples seen:', samples_seen)
-            print("Training completed!")
+            for i, seq in enumerate(tokenizer.texts_to_sequences_generator(get_texts(args))):
+                # get skipgram couples for one text in the dataset
+                couples, labels = sequence.skipgrams(
+                    seq, max_features, window_size=window_size,
+                    negative_samples=negative_samples, sampling_table=sampling_table)
+                if couples:
+                    # one gradient update per sentence (one sentence = a few 1000s of word couples)
+                    X = np.array(couples, dtype="int32")
+                    loss = model.train(X, labels)
+                    losses.append(loss)
+                    if len(losses) % 100 == 0:
+                        progbar.update(i, values=[("loss", np.mean(losses))])
+                        losses = []
+                    samples_seen += len(labels)
+            print('Samples seen:', samples_seen)
+        print("Training completed!")
 
-            if save:
-                print("Saving model...")
-                if not os.path.exists(save_dir):
-                    os.makedirs(save_dir)
-                pickle_dump(model, os.path.join(save_dir, model_save_fname))
+        print("Saving model...")
+        pickle_dump(model, args.output)
 
     print("It's test time!")
 
@@ -257,12 +209,10 @@ def run(args):
     norm_weights = np_utils.normalize(weights)
     word_index = tokenizer.word_index
 
-    model_data = {
-        'norm_weights': norm_weights,
-        'word_index': word_index,
-    }
-
-    simplified_model = BasicEmbeddingWrapper(**model_data)
+    simplified_model = BasicEmbeddingWrapper(
+        norm_weights=norm_weights,
+        word_index=word_index
+    )
 
     for w in words:
         res = simplified_model.closest_to_word(w)
@@ -271,7 +221,7 @@ def run(args):
             print(r)
 
     # save final model
-    simplified_model.dump(args.output)
+    simplified_model.dump(args.simple_model)
 
 
 if __name__ == "__main__":

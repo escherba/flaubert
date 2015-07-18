@@ -1,5 +1,6 @@
 import multiprocessing
 import logging
+from itertools import islice, chain
 from pymaptools.io import read_json_lines, PathArgumentParser
 from gensim.models import word2vec, doc2vec
 from flaubert.conf import CONFIG
@@ -34,9 +35,18 @@ def doc_iter(args):
 
 def get_sentences(args):
     logging.info("Reading sentences from files: %s", args.sentences)
-    for doc in doc_iter(args):
-        for sentence in doc:
-            yield sentence
+    iterator = doc_iter(args)
+    if args.limit:
+        iterator = islice(iterator, args.limit)
+    if args.no_sentences:
+        logging.info("Using whole documents")
+        for doc in iterator:
+            yield list(chain.from_iterable(doc))
+    else:
+        logging.info("Using documents split by sentences")
+        for doc in iterator:
+            for sentence in doc:
+                yield sentence
 
 
 def get_labeled_sentences(args):
