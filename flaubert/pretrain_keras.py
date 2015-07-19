@@ -48,12 +48,11 @@ skip_top = 100        # ignore top 100 most common words
 nb_epoch = 2
 dim_proj = 256        # embedding space dimension
 negative_samples = 1.
-window_size = 4
+window_size = 20
 model_optimizer = 'rmsprop'
 model_loss = 'mse'
 
-load_model = False
-load_tokenizer = False
+load_model = True
 
 
 class SimplePickle(object):

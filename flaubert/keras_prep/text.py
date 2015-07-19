@@ -5,21 +5,23 @@
 '''
 from __future__ import absolute_import
 
-import string, sys
+import string
+import sys
 import numpy as np
-from six.moves import range
-from six.moves import zip
+from operator import itemgetter
 
 if sys.version_info < (3,):
     maketrans = string.maketrans
 else:
     maketrans = str.maketrans
 
+
 def base_filter():
     f = string.punctuation
     f = f.replace("'", '')
     f += '\t\n'
     return f
+
 
 def text_to_word_sequence(text, filters=base_filter(), lower=True, split=" "):
     '''prune: sequence of characters to filter out
@@ -33,7 +35,7 @@ def text_to_word_sequence(text, filters=base_filter(), lower=True, split=" "):
 
 def one_hot(text, n, filters=base_filter(), lower=True, split=" "):
     seq = text_to_word_sequence(text)
-    return [(abs(hash(w))%(n-1)+1) for w in seq]
+    return [(abs(hash(w)) % (n - 1) + 1) for w in seq]
 
 
 class Tokenizer(object):
@@ -66,19 +68,15 @@ class Tokenizer(object):
                 else:
                     self.word_docs[w] = 1
 
-        wcounts = list(self.word_counts.items())
-        wcounts.sort(key = lambda x: x[1], reverse=True)
+        wcounts = self.word_counts.items()
+        wcounts.sort(key=itemgetter(1), reverse=True)
         sorted_voc = [wc[0] for wc in wcounts]
-        self.word_index = dict(list(zip(sorted_voc, list(range(1, len(sorted_voc)+1)))))
-
-        self.index_docs = {}
-        for w, c in list(self.word_docs.items()):
-            self.index_docs[self.word_index[w]] = c
-
+        self.word_index = {v: k for k, v in enumerate(sorted_voc, start=1)}
+        self.index_docs = {self.word_index[w]: c for w, c in self.word_docs.iteritems()}
 
     def fit_on_sequences(self, sequences):
         '''
-            required before using sequences_to_matrix 
+            required before using sequences_to_matrix
             (if fit_on_texts was never called)
         '''
         self.document_count = len(sequences)
@@ -90,7 +88,6 @@ class Tokenizer(object):
                     self.index_docs[i] = 1
                 else:
                     self.index_docs[i] += 1
-
 
     def texts_to_sequences(self, texts):
         '''
@@ -125,7 +122,6 @@ class Tokenizer(object):
                     else:
                         vect.append(i)
             yield vect
-
 
     def texts_to_matrix(self, texts, mode="binary"):
         '''
@@ -175,11 +171,3 @@ class Tokenizer(object):
                 else:
                     raise Exception("Unknown vectorization mode: " + str(mode))
         return X
-
-
-
-                
-
-
-
-    
