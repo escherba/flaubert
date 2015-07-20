@@ -40,7 +40,8 @@ pretrain:
 train:
     classifier: 'svm'
     scoring: 'f1'
-    features: ["bow"]    # either doc2vec or word2vec
+    word2vec_model: 'keras'   # keras or gensim
+    features: ["word2vec"]    # either doc2vec or word2vec
     nltk_stop_words: null  # either null or "english" or others...
 
 word2vec:

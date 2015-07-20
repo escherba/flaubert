@@ -5,7 +5,6 @@ import logging
 import cPickle as pickle
 from itertools import chain, izip
 from collections import Counter
-from gensim.models import word2vec
 from sklearn.cross_validation import train_test_split
 from sklearn.grid_search import GridSearchCV
 from sklearn.metrics import classification_report
@@ -313,7 +312,12 @@ def get_data(args):
         return False, (get_bow_features(sentences), y_labels)
 
     # load embedding
-    embedding = word2vec.Word2Vec.load(args.embedding)
+    if CONFIG['train']['word2vec_model'] == 'gensim':
+        from gensim.models import word2vec
+        embedding = word2vec.Word2Vec.load(args.embedding)
+    elif CONFIG['train']['word2vec_model'] == 'keras':
+        from flaubert.pretrain_keras import KerasEmbedding
+        embedding = KerasEmbedding.load(args.embedding)
 
     # get feature vectors
     if 'doc2vec' in CONFIG['train']['features']:
