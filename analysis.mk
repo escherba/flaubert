@@ -34,7 +34,7 @@ train: $(LABELED_TRAIN).tsv $(LABELED_TRAIN).sents.gz $(EMBEDDING)
 		--sentences $(LABELED_TRAIN).sents.gz
 
 train_keras: $(LABELED_TRAIN).tsv $(LABELED_TRAIN).sents.gz $(EMBEDDING_KERAS)
-	$(PYTHON) -m flaubert.train_keras \
+	$(PYTHON) -m flaubert.train \
 		--embedding $(EMBEDDING_KERAS) \
 		--train $(LABELED_TRAIN).tsv \
 		--sentences $(LABELED_TRAIN).sents.gz
