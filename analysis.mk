@@ -7,6 +7,7 @@ LABELED_TRAIN = $(DATA_DIR)/labeledTrainData
 UNLABELED_TRAIN =  $(DATA_DIR)/unlabeledTrainData
 TRAIN = $(LABELED_TRAIN) $(UNLABELED_TRAIN)
 EMBEDDING = $(DATA_DIR)/300features_40minwords_10context
+EMBEDDING_KERAS = $(DATA_DIR)/keras_model_simple.gz
 SENT_TOKENIZER = $(DATA_DIR)/sentence_tokenizer.pickle
 
 export NLTK_DATA=$(NLTK_DIR)
@@ -29,6 +30,12 @@ pretrain: $(EMBEDDING)
 train: $(LABELED_TRAIN).tsv $(LABELED_TRAIN).sents.gz $(EMBEDDING)
 	$(PYTHON) -m flaubert.train \
 		--embedding $(EMBEDDING) \
+		--train $(LABELED_TRAIN).tsv \
+		--sentences $(LABELED_TRAIN).sents.gz
+
+train_keras: $(LABELED_TRAIN).tsv $(LABELED_TRAIN).sents.gz $(EMBEDDING_KERAS)
+	$(PYTHON) -m flaubert.train_keras \
+		--embedding $(EMBEDDING_KERAS) \
 		--train $(LABELED_TRAIN).tsv \
 		--sentences $(LABELED_TRAIN).sents.gz
 

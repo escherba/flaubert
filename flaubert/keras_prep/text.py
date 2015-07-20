@@ -8,7 +8,7 @@ from __future__ import absolute_import
 import string
 import sys
 import numpy as np
-from operator import itemgetter
+from collections import Counter
 
 if sys.version_info < (3,):
     maketrans = string.maketrans
@@ -28,7 +28,7 @@ def text_to_word_sequence(text, filters=base_filter(), lower=True, split=" "):
     '''
     if lower:
         text = text.lower()
-    text = text.translate(maketrans(filters, split*len(filters)))
+    text = text.translate(maketrans(filters, split * len(filters)))
     seq = text.split(split)
     return [_f for _f in seq if _f]
 
@@ -40,54 +40,45 @@ def one_hot(text, n, filters=base_filter(), lower=True, split=" "):
 
 class Tokenizer(object):
     def __init__(self, nb_words=None, filters=base_filter(), lower=True, split=" "):
-        self.word_counts = {}
-        self.word_docs = {}
+        self.word_counts = Counter()
+        self.word_docs = Counter()
+        self.index_docs = Counter()
+        self.document_count = 0
         self.filters = filters
         self.split = split
         self.lower = lower
         self.nb_words = nb_words
-        self.document_count = 0
 
     def fit_on_texts(self, texts):
         '''
             required before using texts_to_sequences or texts_to_matrix
             @param texts: can be a list or a generator (for memory-efficiency)
         '''
-        self.document_count = 0
+        word_counts = Counter()
+        word_docs = Counter()
+        document_count = 0
         for text in texts:
-            self.document_count += 1
+            document_count += 1
             seq = text_to_word_sequence(text, self.filters, self.lower, self.split)
-            for w in seq:
-                if w in self.word_counts:
-                    self.word_counts[w] += 1
-                else:
-                    self.word_counts[w] = 1
-            for w in set(seq):
-                if w in self.word_docs:
-                    self.word_docs[w] += 1
-                else:
-                    self.word_docs[w] = 1
-
-        wcounts = self.word_counts.items()
-        wcounts.sort(key=itemgetter(1), reverse=True)
-        sorted_voc = [wc[0] for wc in wcounts]
-        self.word_index = {v: k for k, v in enumerate(sorted_voc, start=1)}
-        self.index_docs = {self.word_index[w]: c for w, c in self.word_docs.iteritems()}
+            word_counts.update(seq)
+            word_docs.update(set(seq))
+        self.document_count = document_count
+        word_index = {w: i for i, (w, c) in enumerate(word_counts.most_common(), start=1)}
+        self.index_docs = Counter({word_index[w]: c for w, c in word_docs.iteritems()})
+        self.word_index = word_index
 
     def fit_on_sequences(self, sequences):
         '''
             required before using sequences_to_matrix
             (if fit_on_texts was never called)
         '''
-        self.document_count = len(sequences)
-        self.index_docs = {}
+        index_docs = Counter()
+        document_count = 0
         for seq in sequences:
-            seq = set(seq)
-            for i in seq:
-                if i not in self.index_docs:
-                    self.index_docs[i] = 1
-                else:
-                    self.index_docs[i] += 1
+            document_count += 1
+            index_docs.update(set(seq))
+        self.document_count = document_count
+        self.index_docs = index_docs
 
     def texts_to_sequences(self, texts):
         '''
@@ -146,27 +137,26 @@ class Tokenizer(object):
             raise Exception("Fit the Tokenizer on some data before using tfidf mode")
 
         X = np.zeros((len(sequences), nb_words))
+        index_docs = self.index_docs
+        document_count1 = float(self.document_count + 1)
         for i, seq in enumerate(sequences):
             if not seq:
                 pass
-            counts = {}
+            seq_len = len(seq)
+            counts = Counter()
             for j in seq:
-                if j >= nb_words:
-                    pass
-                if j not in counts:
-                    counts[j] = 1.
-                else:
+                if j < nb_words:
                     counts[j] += 1
-            for j, c in list(counts.items()):
+            for j, c in counts.iteritems():
                 if mode == "count":
-                    X[i][j] = c
+                    X[i][j] = float(c)
                 elif mode == "freq":
-                    X[i][j] = c/len(seq)
+                    X[i][j] = float(c) / seq_len
                 elif mode == "binary":
                     X[i][j] = 1
                 elif mode == "tfidf":
-                    tf = np.log(c/len(seq))
-                    df = (1 + np.log(1 + self.index_docs.get(j, 0)/(1 + self.document_count)))
+                    tf = np.log(float(c) / seq_len)
+                    df = (1.0 + np.log(1.0 + index_docs.get(j, 0) / document_count1))
                     X[i][j] = tf / df
                 else:
                     raise Exception("Unknown vectorization mode: " + str(mode))

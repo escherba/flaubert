@@ -32,7 +32,10 @@ from __future__ import print_function
 
 import numpy as np
 import theano
+import collections
 
+from heapq import nlargest
+from operator import itemgetter
 from flaubert.pretrain import get_sentences
 from flaubert.keras_prep import sequence, text
 from keras.optimizers import SGD, RMSprop, Adagrad
@@ -45,58 +48,71 @@ from pymaptools.io import PathArgumentParser, pickle_dump, pickle_load
 
 max_features = 50000  # vocabulary size: top 50,000 most common words in data
 skip_top = 100        # ignore top 100 most common words
-nb_epoch = 2
-dim_proj = 256        # embedding space dimension
+nepoch = 2
+dim_proj = 400        # embedding space dimension
 negative_samples = 1.
-window_size = 20
+window_size = 8
 model_optimizer = 'rmsprop'
 model_loss = 'mse'
 
-load_model = True
+load_model = False
 
 
 class SimplePickle(object):
 
     @classmethod
     def load(cls, input_file):
-        model = pickle_load(input_file)
-        assert isinstance(model, cls)
+        obj = pickle_load(input_file)
+        assert isinstance(obj, cls)
+        return obj
 
     def dump(self, output_file):
         pickle_dump(self, output_file)
 
 
-class BasicEmbeddingWrapper(SimplePickle):
+class KerasEmbedding(SimplePickle):
 
-    def __init__(self, word_index=None, norm_weights=None):
-        self.word_index = word_index or {}
-        self.norm_weights = norm_weights if len(norm_weights) > 0 else []
-        self.reverse_word_index = {v: k for k, v in list(word_index.items())}
+    def __init__(self, word_index, weights, skip_top=None):
+        assert isinstance(word_index, collections.Mapping)
+        assert isinstance(weights, np.ndarray)
+        max_features, _ = weights.shape
+        if skip_top is not None and skip_top > 0:
+            weights = weights[skip_top:]
+        else:
+            skip_top = 0
+        weights = np_utils.normalize(weights)
+        self.syn0 = weights
+        self.skip_top = skip_top
+        self.word_index = {w: i - skip_top for w, i in word_index.iteritems()
+                           if i + skip_top < max_features}
+        self.reverse_word_index = {v: k for k, v in self.word_index.iteritems()}
 
-    def embed_word(self, w):
-        i = self.word_index.get(w)
-        if (not i) or (i < skip_top) or (i >= max_features):
+    def __getitem__(self, word):
+        """Return embedding vector of `word`"""
+        i = self.word_index.get(word)
+        if i is None:
             return None
-        return self.norm_weights[i]
+        return self.syn0[i]
 
-    def closest_to_point(self, point, nb_closest=10):
-        proximities = np.dot(self.norm_weights, point)
-        tups = list(enumerate(proximities))
-        tups.sort(key=lambda x: x[1], reverse=True)
-        return [(self.reverse_word_index.get(t[0]), t[1]) for t in tups[:nb_closest]]
+    def closest_to_point(self, point, nclosest=10):
+        """Return points (vectors) closest to the given one"""
+        proximities = np.dot(self.syn0, point)
+        word_dists = nlargest(nclosest, enumerate(proximities), key=itemgetter(1))
+        return [(self.reverse_word_index.get(i), dist) for i, dist in word_dists]
 
-    def closest_to_word(self, w, nb_closest=10):
-        i = self.word_index.get(w)
-        if (not i) or (i < skip_top) or (i >= max_features):
+    def closest_to_word(self, word, nclosest=10):
+        """Return words closest to the given one"""
+        i = self.word_index.get(word)
+        if i is None:
             return []
-        return self.closest_to_point(self.norm_weights[i].T, nb_closest)
+        return self.closest_to_point(self.syn0[i], nclosest)
 
 
 ''' the resuls in comments below were for:
     5.8M HN comments
     max_features = 50000
     skip_top = 100
-    nb_epoch = 2
+    nepoch = 2
     dim_proj = 256
     negative_samples = 1.
     window_size = 4
@@ -167,7 +183,7 @@ def run(args):
 
         sampling_table = sequence.make_sampling_table(max_features)
 
-        for e in range(nb_epoch):
+        for e in range(nepoch):
             print('-' * 40)
             print('Epoch', e)
             print('-' * 40)
@@ -196,31 +212,27 @@ def run(args):
         print("Saving model...")
         pickle_dump(model, args.output)
 
-    print("It's test time!")
-
-    # recover the embedding weights trained with skipgram:
-    weights = model.layers[0].get_weights()[0]
+    # Create and save a simplified model
+    simplified_model = KerasEmbedding(
+        word_index=tokenizer.word_index,
+        # recover the embedding weights trained with skipgram:
+        weights=model.layers[0].get_weights()[0],
+        skip_top=skip_top
+    )
 
     # we no longer need this
     del model
 
-    weights[:skip_top] = np.zeros((skip_top, dim_proj))
-    norm_weights = np_utils.normalize(weights)
-    word_index = tokenizer.word_index
+    # save final model
+    simplified_model.dump(args.simple_model)
 
-    simplified_model = BasicEmbeddingWrapper(
-        norm_weights=norm_weights,
-        word_index=word_index
-    )
+    print("It's test time!")
 
     for w in words:
         res = simplified_model.closest_to_word(w)
         print('====', w)
         for r in res:
             print(r)
-
-    # save final model
-    simplified_model.dump(args.simple_model)
 
 
 if __name__ == "__main__":
