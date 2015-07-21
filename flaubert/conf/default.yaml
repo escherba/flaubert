@@ -34,7 +34,7 @@ preprocess:
     stemmer: null           # null or "porter"
 
 pretrain:
-    sentences: true
+    sentences: false
     algorithm: "glove"    # either doc2vec or word2vec or glove
     embedding: "word2vec"    # for word2vec algo, either word2vec or doc2vec
     doc2vec_labels: ['sentence']   # allowed labels: ['sentence', 'document']
