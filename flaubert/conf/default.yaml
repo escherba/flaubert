@@ -34,15 +34,22 @@ preprocess:
     stemmer: null           # null or "porter"
 
 pretrain:
-    embedding: "word2vec"    # either doc2vec or word2vec
+    sentences: true
+    algorithm: "glove"    # either doc2vec or word2vec or glove
+    embedding: "word2vec"    # for word2vec algo, either word2vec or doc2vec
     doc2vec_labels: ['sentence']   # allowed labels: ['sentence', 'document']
 
 train:
     classifier: 'svm'
     scoring: 'f1'
-    word2vec_model: 'keras'   # keras or gensim
     features: ["word2vec"]    # either doc2vec or word2vec
     nltk_stop_words: null  # either null or "english" or others...
+
+glove:
+    size: 400
+    learning_rate: 0.02
+    epochs: 40
+    window: 20
 
 word2vec:
     sg: 1               # 1 for skip-gram (default), cbow otherwise
