@@ -1,0 +1,18 @@
+Detailed classification report:
+
+The model is trained on the full development set.
+The scores are computed on the full evaluation set.
+
+             precision    recall  f1-score   support
+
+          0       0.89      0.88      0.89      2548
+          1       0.88      0.89      0.88      2452
+
+avg / total       0.88      0.88      0.88      5000
+
+
+Best parameters set found on development set:
+
+{'clf__dual': False, 'clf__penalty': 'l2', 'clf__C': 33}
+
+Best score: f1=0.880100
