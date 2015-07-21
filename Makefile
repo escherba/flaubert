@@ -49,6 +49,7 @@ env/bin/activate: requirements.txt setup.py
 	$(PIP) install setuptools
 	$(PIP) install distribute
 	$(PIP) install wheel
+	$(PIP) install cython
 	$(PIP) install numpy
 	$(PIP) install -r $<
 	touch $@
