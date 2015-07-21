@@ -27,10 +27,10 @@ from glove import Glove
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
 
-class GloveWrapper(Glove):
+class GloveWrapper(object):
 
     """
-    Make a glove-python model look superficially like gensim.word2vec model
+    mixin to make a glove-python model look superficially like gensim.word2vec model
     """
 
     @property
@@ -334,7 +334,9 @@ def get_data(args):
     if CONFIG['pretrain']['algorithm'] == 'word2vec':
         embedding = word2vec.Word2Vec.load(args.embedding)
     elif CONFIG['pretrain']['algorithm'] == 'glove':
-        embedding = GloveWrapper.load(args.embedding)
+        embedding = Glove.load(args.embedding)
+        # dynamicaly add GloveWrapper mixin
+        embedding.__class__ = type('MyGlove', (Glove, GloveWrapper), {})
 
     # get feature vectors
     if 'doc2vec' in CONFIG['train']['features']:
