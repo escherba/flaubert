@@ -7,8 +7,8 @@ LABELED_TRAIN = $(DATA_DIR)/labeledTrainData
 UNLABELED_TRAIN =  $(DATA_DIR)/unlabeledTrainData
 TRAIN = $(LABELED_TRAIN) $(UNLABELED_TRAIN)
 EMBEDDING = $(DATA_DIR)/300features_40minwords_10context
-EMBEDDING_KERAS = $(DATA_DIR)/keras_model_simple.gz
 SENT_TOKENIZER = $(DATA_DIR)/sentence_tokenizer.pickle
+CORP_MODEL = $(DATA_DIR)/corpus.model
 
 export NLTK_DATA=$(NLTK_DIR)
 
@@ -33,12 +33,6 @@ train: $(LABELED_TRAIN).tsv $(LABELED_TRAIN).sents.gz $(EMBEDDING)
 		--train $(LABELED_TRAIN).tsv \
 		--sentences $(LABELED_TRAIN).sents.gz
 
-train_keras: $(LABELED_TRAIN).tsv $(LABELED_TRAIN).sents.gz $(EMBEDDING_KERAS)
-	$(PYTHON) -m flaubert.train \
-		--embedding $(EMBEDDING_KERAS) \
-		--train $(LABELED_TRAIN).tsv \
-		--sentences $(LABELED_TRAIN).sents.gz
-
 train_vectors:
 	$(PYTHON) -m flaubert.train --vectors data/imdb-old.pkl
 
@@ -48,8 +42,9 @@ train_vectors:
 
 $(EMBEDDING): $(LABELED_TRAIN).sents.gz $(UNLABELED_TRAIN).sents.gz
 	@echo "Building embedding model at $(EMBEDDING)"
-	python -m flaubert.pretrain \
-		--sentences $^ \
+	python -m flaubert.pretrain --verbose \
+		--input $^ \
+		--corpus_model $(CORP_MODEL) \
 		--output $@
 
 $(NLTK_DIR_DONE):
