@@ -8,7 +8,7 @@ UNLABELED_TRAIN =  $(DATA_DIR)/unlabeledTrainData
 TRAIN = $(LABELED_TRAIN) $(UNLABELED_TRAIN)
 EMBEDDING = $(DATA_DIR)/300features_40minwords_10context
 SENT_TOKENIZER = $(DATA_DIR)/sentence_tokenizer.pickle
-CORP_MODEL = $(DATA_DIR)/corpus.model
+CORP_MODEL = $(DATA_DIR)/glove-corpus.model
 
 export NLTK_DATA=$(NLTK_DIR)
 

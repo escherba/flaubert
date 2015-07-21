@@ -22,10 +22,26 @@ from flaubert.pretrain import sentence_iter
 from flaubert.utils import ItemSelector, read_tsv, BagVectorizer
 from flaubert.conf import CONFIG
 from gensim.models import word2vec
-from flaubert.pretrain_keras import KerasEmbedding
-
+from glove import Glove
 
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
+
+
+class GloveWrapper(object):
+
+    """
+    mixin to make a glove-python model look superficially like gensim.word2vec model
+    """
+
+    @property
+    def syn0(self):
+        return self.word_vectors
+
+    def __getitem__(self, word):
+        try:
+            return self.word_vectors[self.dictionary[word]]
+        except KeyError:
+            return None
 
 
 if CONFIG['train']['nltk_stop_words']:
@@ -315,10 +331,12 @@ def get_data(args):
         return False, (get_bow_features(sentences), y_labels)
 
     # load embedding
-    if CONFIG['train']['word2vec_model'] == 'gensim':
+    if CONFIG['pretrain']['algorithm'] == 'word2vec':
         embedding = word2vec.Word2Vec.load(args.embedding)
-    elif CONFIG['train']['word2vec_model'] == 'keras':
-        embedding = KerasEmbedding.load(args.embedding)
+    elif CONFIG['pretrain']['algorithm'] == 'glove':
+        embedding = Glove.load(args.embedding)
+        # dynamicaly add GloveWrapper mixin
+        embedding.__class__ = type('MyGlove', (Glove, GloveWrapper), {})
 
     # get feature vectors
     if 'doc2vec' in CONFIG['train']['features']:
