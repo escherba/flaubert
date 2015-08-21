@@ -233,6 +233,24 @@ class HTMLCleaner(object):
         return html
 
 
+def strip_html_bs(text):
+    """
+    Use BeautifulSoup to strip off HTML but in such a way that <BR> and
+    <P> tags get rendered as new lines
+    """
+    soup = BeautifulSoup(text)
+    fragments = []
+    for element in soup.recursiveChildGenerator():
+        if isinstance(element, basestring):
+            fragments.append(element.strip())
+        elif element.name == 'br':
+            fragments.append(u"\n")
+        elif element.name == 'p':
+            fragments.append(u"\n")
+    result = u"".join(fragments).strip()
+    return result
+
+
 class SimpleSentenceTokenizer(object):
 
     def __init__(self, lemmatizer=None, stemmer=None, url_parser=None,
@@ -269,7 +287,7 @@ class SimpleSentenceTokenizer(object):
         elif html_renderer == u'default':
             self.strip_html = HTMLCleaner().clean
         elif html_renderer == u'beautifulsoup':
-            self.strip_html = self._strip_html_bs
+            self.strip_html = strip_html_bs
         else:
             raise ValueError('Invalid parameter value given for `html_renderer`')
 
@@ -335,23 +353,6 @@ class SimpleSentenceTokenizer(object):
         # 6. Reduce repeated characters to specified number (usually 3)
         text = self._replace_char_repeats(text)
         return text
-
-    def _strip_html_bs(self, text):
-        """
-        Use BeautifulSoup to strip off HTML but in such a way that <BR> and
-        <P> tags get rendered as new lines
-        """
-        soup = BeautifulSoup(text)
-        fragments = []
-        for element in soup.recursiveChildGenerator():
-            if isinstance(element, basestring):
-                fragments.append(element.strip())
-            elif element.name == 'br':
-                fragments.append(u"\n")
-            elif element.name == 'p':
-                fragments.append(u"\n")
-        result = u"".join(fragments).strip()
-        return result
 
     def word_tokenize(self, text, lowercase=True, preprocess=True, remove_stopwords=False):
         # 1. Misc. preprocessing

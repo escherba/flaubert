@@ -5,7 +5,6 @@ import logging
 import cPickle as pickle
 from itertools import chain, izip
 from collections import Counter
-from gensim.models import word2vec
 from sklearn.cross_validation import train_test_split
 from sklearn.grid_search import GridSearchCV
 from sklearn.metrics import classification_report
@@ -22,6 +21,8 @@ from pymaptools.io import PathArgumentParser, GzipFileType, read_json_lines, ope
 from flaubert.pretrain import sentence_iter
 from flaubert.utils import ItemSelector, read_tsv, BagVectorizer
 from flaubert.conf import CONFIG
+from gensim.models import word2vec
+from flaubert.pretrain_keras import KerasEmbedding
 
 
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
@@ -47,8 +48,9 @@ def makeFeatureVec(words, model, num_features):
             word_vector = model[word]
         except KeyError:
             continue
-        vector = np.add(vector, word_vector)
-        nwords = nwords + 1
+        if word_vector is not None:
+            vector = np.add(vector, word_vector)
+            nwords = nwords + 1
     # Divide the result by the number of words to get the average
     vector = np.divide(vector, float(nwords))
     return vector
@@ -313,7 +315,10 @@ def get_data(args):
         return False, (get_bow_features(sentences), y_labels)
 
     # load embedding
-    embedding = word2vec.Word2Vec.load(args.embedding)
+    if CONFIG['train']['word2vec_model'] == 'gensim':
+        embedding = word2vec.Word2Vec.load(args.embedding)
+    elif CONFIG['train']['word2vec_model'] == 'keras':
+        embedding = KerasEmbedding.load(args.embedding)
 
     # get feature vectors
     if 'doc2vec' in CONFIG['train']['features']:
