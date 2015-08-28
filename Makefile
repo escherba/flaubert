@@ -35,7 +35,7 @@ clean:
 coverage: test
 	open cover/index.html
 
-ifeq ($(DOMINO_RUN),1)
+ifeq ($(PIP_SYSTEM_SITE_PACKAGES),1)
 VENV_OPTS="--system-site-packages"
 else
 VENV_OPTS="--no-site-packages"
