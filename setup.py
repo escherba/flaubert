@@ -9,7 +9,7 @@ from glob import glob
 SKIP_RE = re.compile(r'^\s*(?:-\S+)\s+(.*)$')
 
 # Regex groups: 0: URL part, 1: package name, 2: package version
-EGG_RE = re.compile(r'^(.+)#egg=([a-z0-9_.]+)(?:-([a-z0-9_.-]+))?$')
+EGG_RE = re.compile(r'^(git\+https?://[^#]+)(?:#egg=([a-z0-9_.]+)(?:-([a-z0-9_.-]+))?)?$')
 
 # Regex groups: 0: URL part, 1: package name, 2: branch name
 URL_RE = re.compile(r'^\s*(https?://[\w\.]+.*/([^\/]+)/archive/)([^\/]+).zip$')
@@ -31,7 +31,7 @@ def parse_reqs(reqs):
             dep_links.append(url)
             continue
         # add packages of form:
-        # git+https://github.com/Livefyre/pymaptools#egg=pymaptools-0.0.3
+        # git+https://github.com/escherba/pymaptools#egg=pymaptools-0.1.15
         egg_info = EGG_RE.match(req)
         if egg_info is not None:
             url, egg, version = egg_info.group(0, 2, 3)
@@ -73,8 +73,8 @@ def build_extras(glob_pattern):
 INSTALL_REQUIRES, INSTALL_DEPS = parse_reqs(
     resource_string(__name__, 'requirements.txt').splitlines())
 TESTS_REQUIRE, TESTS_DEPS = parse_reqs(
-    resource_string(__name__, 'requirements-tests.txt').splitlines())
-EXTRAS_REQUIRE, EXTRAS_DEPS = build_extras('requirements-extras.*.txt')
+    resource_string(__name__, 'dev-requirements.txt').splitlines())
+EXTRAS_REQUIRE, EXTRAS_DEPS = build_extras('extras-*-requirements.txt')
 DEPENDENCY_LINKS = list(set(itertools.chain(
     INSTALL_DEPS,
     TESTS_DEPS,
