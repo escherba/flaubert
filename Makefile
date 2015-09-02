@@ -32,6 +32,11 @@ clean:
 	rm -rf dist build
 	find . -path ./env -prune -o -type f -regex '.*\.pyc' -or -regex '.*\-theirs\..*' -exec rm {} \;
 
+develop:
+	@echo "Installing for " `which pip`
+	-pip uninstall --yes flaubert
+	pip install -e .
+
 coverage: test
 	open cover/index.html
 
