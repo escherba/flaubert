@@ -26,8 +26,8 @@ def read_tsv(file_input, iterator=False, chunksize=None):
         encoding="utf-8")
 
 
-def pd_row_iter(datasets, chunksize=1000):
-    """Produce an iterator over rows in Pandas
+def pd_row_iter(datasets, chunksize=1000, field=None):
+    """Produce an iterator over rows or field values in Pandas
     dataframe while reading from files on disk
 
     @param datasets: a list of filenames or file handles
@@ -40,8 +40,11 @@ def pd_row_iter(datasets, chunksize=1000):
         datasets = [datasets]
     for dataset in datasets:
         for chunk in read_tsv(dataset, iterator=True, chunksize=chunksize):
-            for row in chunk.iterrows():
-                yield row
+            iterable = chunk.iterrows() \
+                if field is None \
+                else chunk[field]
+            for val in iterable:
+                yield val
 
 
 def pd_dict_iter(datasets, chunksize=1000):

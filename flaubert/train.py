@@ -19,10 +19,8 @@ from sklearn.linear_model import LogisticRegression
 from nltk.corpus import stopwords
 from pymaptools.io import PathArgumentParser, GzipFileType, read_json_lines, open_gz
 from flaubert.pretrain import sentence_iter
-from flaubert.utils import ItemSelector, read_tsv, BagVectorizer
+from flaubert.utils import ItemSelector, pd_row_iter, BagVectorizer
 from flaubert.conf import CONFIG
-from gensim.models import word2vec
-from glove import Glove
 
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
@@ -302,11 +300,11 @@ def parse_args(args=None):
     parser = PathArgumentParser()
     parser.add_argument('--embedding', type=str, metavar='FILE', default=None,
                         help='Input word2vec (or doc2vec) model')
-    parser.add_argument('--train', type=str, metavar='FILE', default=None,
+    parser.add_argument('--train', type=str, metavar='FILE', nargs='*', default=[],
                         help='(Labeled) training set')
     parser.add_argument('--plot_features', type=str, default=None,
                         help='file to save feature comparison to')
-    parser.add_argument('--sentences', type=GzipFileType('r'), default=None,
+    parser.add_argument('--sentences', type=GzipFileType('r'), nargs='*', default=[],
                         help='File containing sentences in JSON format (implies doc2vec)')
     parser.add_argument('--vectors', metavar='FILE', type=str, default=None,
                         help='File containing sentence vectors in Pickle format')
@@ -320,11 +318,9 @@ def get_data(args):
     if set(feature_set_names).intersection(['word2vec', 'doc2vec']) and not args.embedding:
         raise RuntimeError("--embedding argument must be supplied")
 
-    # get Y labels
-    training_set = read_tsv(args.train)
-    y_labels = training_set["sentiment"]
-
-    sentences = [obj['review'] for obj in read_json_lines(args.sentences)]
+    # get input data
+    y_labels = np.array(list(pd_row_iter(args.train, field="sentiment")), dtype=float)
+    sentences = [obj['review'] for obj in chain.from_iterable(read_json_lines(x) for x in args.sentences)]
 
     if not args.embedding or feature_set_names == ['bow']:
         # don't drop NaNs -- have a sparse matrix here
@@ -332,8 +328,10 @@ def get_data(args):
 
     # load embedding
     if CONFIG['pretrain']['algorithm'] == 'word2vec':
+        from gensim.models import word2vec
         embedding = word2vec.Word2Vec.load(args.embedding)
     elif CONFIG['pretrain']['algorithm'] == 'glove':
+        from glove import Glove
         embedding = Glove.load(args.embedding)
         # dynamicaly add GloveWrapper mixin
         embedding.__class__ = type('MyGlove', (Glove, GloveWrapper), {})

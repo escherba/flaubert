@@ -42,8 +42,8 @@ pretrain:
 train:
     classifier: 'svm'
     scoring: 'f1'
-    features: ["word2vec"]    # either doc2vec or word2vec
-    nltk_stop_words: null  # either null or "english" or others...
+    features: ["word2vec"]   # either "bow" or "word2vec" or both
+    nltk_stop_words: null    # either null or "english" or others...
 
 glove:
     size: 400
