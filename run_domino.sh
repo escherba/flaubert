@@ -7,8 +7,8 @@ make nltk
 #rm -f data/sentence_tokenizer.pickle
 #make data/sentence_tokenizer.pickle
 #rm -f data/300features_40minwords_10context
-make preprocess
-make pretrain
+make -j2 preprocess
+make -j2 pretrain
 #make train_vectors
 #make train
 #make words

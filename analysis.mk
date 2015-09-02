@@ -1,46 +1,48 @@
 NLTK_DIR = nltk_data
 NLTK_DIR_DONE = $(NLTK_DIR)/make.done
 DATA_DIR = data
-ALL_DATA := $(shell find $(DATA_DIR) -type f -name '*.zip')
-TEST = $(DATA_DIR)/testData
-LABELED_TRAIN = $(DATA_DIR)/labeledTrainData
-UNLABELED_TRAIN =  $(DATA_DIR)/unlabeledTrainData
-TRAIN = $(LABELED_TRAIN) $(UNLABELED_TRAIN)
+TESTING_DATA = $(DATA_DIR)/testData
+TRAINING_LABELED = $(wildcard $(DATA_DIR)/labeledTrainData-*.tsv)
+TRAINING_UNLABELED =  $(wildcard $(DATA_DIR)/unlabeledTrainData-*.tsv)
+TRAINING_ALL = $(TRAINING_LABELED) $(TRAINING_UNLABELED)
+SENTENCE_LABELED := $(TRAINING_LABELED:.tsv=.sents.gz)
+SENTENCE_UNLABELED := $(TRAINING_UNLABELED:.tsv=.sents.gz)
+SENTENCE_ALL := $(SENTENCE_LABELED) $(SENTENCE_UNLABELED)
+
 EMBEDDING = $(DATA_DIR)/300features_40minwords_10context
 SENT_TOKENIZER = $(DATA_DIR)/sentence_tokenizer.pickle
 CORP_MODEL = $(DATA_DIR)/glove-corpus.model
 
 export NLTK_DATA=$(NLTK_DIR)
 
-TSVS  := $(ALL_DATA:.tsv.zip=.tsv)
-SENTS := $(ALL_DATA:.tsv.zip=.sents.gz)
+.SECONDARY: $(SENT_TOKENIZER) $(SENTENCE_ALL) $(EMBEDDING)
 
 clean_data:
-	rm -rf $(SENTS) $(WORDS) $(EMBEDDING)
+	rm -rf $(SENTENCE_ALL) $(EMBEDDING)
 
 nltk: $(NLTK_DIR_DONE)
 	@echo "done"
 
-preprocess: $(SENTS) | env
+preprocess: $(SENTENCE_ALL) | env
 	@echo "done"
 
 pretrain: $(EMBEDDING)
 	@echo "done"
 
-train: $(LABELED_TRAIN).tsv $(LABELED_TRAIN).sents.gz $(EMBEDDING)
+train: $(TRAINING_LABELED) $(SENTENCE_LABELED) $(EMBEDDING)
+	@echo "Training classifier"
 	$(PYTHON) -m flaubert.train \
 		--embedding $(EMBEDDING) \
-		--train $(LABELED_TRAIN).tsv \
-		--sentences $(LABELED_TRAIN).sents.gz
+		--train $(TRAINING_LABELED) \
+		--sentences $(SENTENCE_LABELED)
 
 train_vectors:
 	$(PYTHON) -m flaubert.train --vectors data/imdb-old.pkl
 
-.SECONDARY: $(TSVS) $(SENT_TOKENIZER) $(WORDS) $(SENTS) $(EMBEDDING)
 %.tsv: %.tsv.zip
 	unzip -p $< > $@
 
-$(EMBEDDING): $(LABELED_TRAIN).sents.gz $(UNLABELED_TRAIN).sents.gz
+$(EMBEDDING): $(SENTENCE_ALL)
 	@echo "Building embedding model at $(EMBEDDING)"
 	python -m flaubert.pretrain --verbose \
 		--input $^ \
@@ -52,7 +54,9 @@ $(NLTK_DIR_DONE):
 	touch $@
 
 %.sents.gz: %.tsv | $(NLTK_DIR_DONE) $(SENT_TOKENIZER)
-	$(PYTHON) -m flaubert.preprocess --input $*.tsv --output $@ tokenize --sentences
+	@echo "Building $@"
+	$(PYTHON) -m flaubert.preprocess --input $*.tsv --n_jobs 1 --output $@ tokenize --sentences
 
-$(SENT_TOKENIZER): $(LABELED_TRAIN).tsv $(UNLABELED_TRAIN).tsv
+$(SENT_TOKENIZER): $(TRAINING_ALL)
+	@echo "Building tokenizer at $@"
 	$(PYTHON) -m flaubert.preprocess --input $^ --output $@ train --verbose
