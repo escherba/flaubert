@@ -304,7 +304,7 @@ def parse_args(args=None):
                         help='(Labeled) training set')
     parser.add_argument('--plot_features', type=str, default=None,
                         help='file to save feature comparison to')
-    parser.add_argument('--sentences', type=GzipFileType('r'), default=None,
+    parser.add_argument('--sentences', type=GzipFileType('r'), nargs='*', default=[],
                         help='File containing sentences in JSON format (implies doc2vec)')
     parser.add_argument('--vectors', metavar='FILE', type=str, default=None,
                         help='File containing sentence vectors in Pickle format')
@@ -319,7 +319,7 @@ def get_data(args):
         raise RuntimeError("--embedding argument must be supplied")
 
     # get input data
-    y_labels = pd_row_iter(args.train, field="sentiment")
+    y_labels = np.array(list(pd_row_iter(args.train, field="sentiment")), dtype=float)
     sentences = [obj['review'] for obj in chain.from_iterable(read_json_lines(x) for x in args.sentences)]
 
     if not args.embedding or feature_set_names == ['bow']:
