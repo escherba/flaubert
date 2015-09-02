@@ -55,7 +55,7 @@ $(NLTK_DIR_DONE):
 
 %.sents.gz: %.tsv | $(NLTK_DIR_DONE) $(SENT_TOKENIZER)
 	@echo "Building $@"
-	$(PYTHON) -m flaubert.preprocess --input $*.tsv --n_jobs 1 --output $@ tokenize --sentences
+	$(PYTHON) -m flaubert.preprocess --input $*.tsv --output $@ tokenize --sentences
 
 $(SENT_TOKENIZER): $(TRAINING_ALL)
 	@echo "Building tokenizer at $@"

@@ -21,8 +21,6 @@ from pymaptools.io import PathArgumentParser, GzipFileType, read_json_lines, ope
 from flaubert.pretrain import sentence_iter
 from flaubert.utils import ItemSelector, pd_row_iter, BagVectorizer
 from flaubert.conf import CONFIG
-from gensim.models import word2vec
-from glove import Glove
 
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
@@ -330,8 +328,10 @@ def get_data(args):
 
     # load embedding
     if CONFIG['pretrain']['algorithm'] == 'word2vec':
+        from gensim.models import word2vec
         embedding = word2vec.Word2Vec.load(args.embedding)
     elif CONFIG['pretrain']['algorithm'] == 'glove':
+        from glove import Glove
         embedding = Glove.load(args.embedding)
         # dynamicaly add GloveWrapper mixin
         embedding.__class__ = type('MyGlove', (Glove, GloveWrapper), {})

@@ -3,8 +3,6 @@ import logging
 import os
 from itertools import islice, chain
 from pymaptools.io import read_json_lines, PathArgumentParser
-from gensim.models import word2vec, doc2vec
-from glove import Glove, Corpus
 from flaubert.conf import CONFIG
 
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
@@ -51,13 +49,6 @@ def get_sentences(args):
             yield list(chain.from_iterable(doc))
 
 
-def get_labeled_sentences(args):
-    logging.info("Reading sentences+labels from files: %s", args.input)
-    for doc_data in sentence_iter(doc_iter(args)):
-        for sentence, labels in doc_data:
-            yield doc2vec.LabeledSentence(sentence, labels=labels)
-
-
 def parse_args(args=None):
     parser = PathArgumentParser()
     parser.add_argument('--input', type=str, metavar='FILE', nargs='+',
@@ -81,6 +72,14 @@ def parse_args(args=None):
 
 
 def build_model_word2vec(args, replace_sims=True):
+
+    from gensim.models import word2vec, doc2vec
+
+    def get_labeled_sentences(args):
+        logging.info("Reading sentences+labels from files: %s", args.input)
+        for doc_data in sentence_iter(doc_iter(args)):
+            for sentence, labels in doc_data:
+                yield doc2vec.LabeledSentence(sentence, labels=labels)
 
     num_workers = args.workers
     if num_workers is None or num_workers < 0:
@@ -113,6 +112,8 @@ def build_model_word2vec(args, replace_sims=True):
 
 
 def build_model_glove(args):
+
+    from glove import Glove, Corpus
 
     if not os.path.exists(args.corpus_model) or \
             max(map(os.path.getmtime, args.input)) >= os.path.getmtime(args.corpus_model):
