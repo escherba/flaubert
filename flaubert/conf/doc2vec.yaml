@@ -34,17 +34,17 @@ preprocess:
     stemmer: null           # null or "porter"
 
 pretrain:
-    split_by_sentence: true
-    doc2vec_labels: ['sentence']   # allowed labels: ['sentence', 'document']
+    split_by_sentence: false
+    doc2vec_labels: ['document']   # [] or ['document'] or ['sentence', 'document']
     algorithm: "word2vec"    # either word2vec or glove
-    embedding: "word2vec"    # for word2vec algo, either word2vec or doc2vec
+    embedding: "doc2vec"    # for word2vec algo, either word2vec or doc2vec
 
 train:
-    split_by_sentence: true
+    split_by_sentence: false
     doc2vec_labels: []   # [] or ['document'] or ['sentence', 'document']
     classifier: 'svm'
     scoring: 'f1'
-    features: ["embedding"]   # either "bow" or "embedding" or both
+    features: ["embedding"]  # "bow" and/or "embedding"
     nltk_stop_words: null    # either null or "english" or others...
 
 glove:

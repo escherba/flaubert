@@ -8,22 +8,28 @@ from flaubert.conf import CONFIG
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
 
-def sentence_iter(document_iter):
-    doc_idx = 0
-    allowed_labels = CONFIG['pretrain']['doc2vec_labels']
+def sentence_iter(document_iter, cfg):
+    split_by_sentence = cfg['split_by_sentence']
+    allowed_labels = cfg['doc2vec_labels']
     sentence_label = 'sentence' in allowed_labels
     document_label = 'document' in allowed_labels
-    for document in document_iter:
-        doc_data = []
-        for sent_idx, sentence in enumerate(document):
+    if split_by_sentence:
+        for doc_idx, document in enumerate(document_iter):
+            doc_data = []
+            for sent_idx, sentence in enumerate(document):
+                labels = []
+                if sentence_label:
+                    labels.append(u'SENT_%d_%d' % (doc_idx, sent_idx))
+                if document_label:
+                    labels.append(u'DOC_%d' % doc_idx)
+                doc_data.append((sentence, labels))
+            yield doc_data
+    else:
+        for doc_idx, document in enumerate(document_iter):
             labels = []
-            if sentence_label:
-                labels.append(u'SENT_%d_%d' % (doc_idx, sent_idx))
             if document_label:
                 labels.append(u'DOC_%d' % doc_idx)
-            doc_data.append((sentence, labels))
-        yield doc_data
-        doc_idx += 1
+            yield [(list(chain.from_iterable(document)), labels)]
 
 
 def doc_iter(args):
@@ -38,7 +44,7 @@ def get_sentences(args):
     iterator = doc_iter(args)
     if args.limit:
         iterator = islice(iterator, args.limit)
-    if CONFIG['pretrain']['sentences']:
+    if CONFIG['pretrain']['split_by_sentence']:
         logging.info("Using documents split by sentences")
         for doc in iterator:
             for sentence in doc:
@@ -77,7 +83,7 @@ def build_model_word2vec(args, replace_sims=True):
 
     def get_labeled_sentences(args):
         logging.info("Reading sentences+labels from files: %s", args.input)
-        for doc_data in sentence_iter(doc_iter(args)):
+        for doc_data in sentence_iter(doc_iter(args), cfg=CONFIG['pretrain']):
             for sentence, labels in doc_data:
                 yield doc2vec.LabeledSentence(sentence, labels=labels)
 

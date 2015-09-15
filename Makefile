@@ -3,7 +3,7 @@
 PYENV = . env/bin/activate;
 PYTHON = $(PYENV) python
 PIP = $(PYENV) pip
-EXTRAS_REQS := $(wildcard requirements-*.txt)
+EXTRAS_REQS := $(wildcard extras-*-requirements.txt)
 
 include analysis.mk
 
@@ -31,6 +31,11 @@ clean:
 	python setup.py clean
 	rm -rf dist build
 	find . -path ./env -prune -o -type f -regex '.*\.pyc' -or -regex '.*\-theirs\..*' -exec rm {} \;
+
+develop:
+	@echo "Installing for " `which pip`
+	-pip uninstall --yes flaubert
+	pip install -e .
 
 coverage: test
 	open cover/index.html
