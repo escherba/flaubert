@@ -7,6 +7,8 @@ This is trained on IMBD data (``prometheus:/media/data/escherba/flaubert/data``)
 
 For production use where we don't have labeled sets, labels could be generated from emoticons or emojis found in content (Happy = positive, sad = negative). This has been done previously by a researcher and is known to give good results given enough data.
 
+Original data source: http://ai.stanford.edu/%7Eamaas/data/sentiment/
+
 Running
 -------
 

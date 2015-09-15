@@ -1,6 +1,6 @@
 NLTK_DIR = nltk_data
 NLTK_DIR_DONE = $(NLTK_DIR)/make.done
-DATA_DIR = data
+DATA_DIR = data/aclImdb
 TESTING_DATA = $(DATA_DIR)/testData
 TRAINING_LABELED = $(wildcard $(DATA_DIR)/labeledTrainData-*.tsv)
 TRAINING_UNLABELED =  $(wildcard $(DATA_DIR)/unlabeledTrainData-*.tsv)
@@ -17,8 +17,13 @@ export NLTK_DATA=$(NLTK_DIR)
 
 .SECONDARY: $(SENT_TOKENIZER) $(SENTENCE_ALL) $(EMBEDDING)
 
-clean_data:
-	rm -rf $(SENTENCE_ALL) $(EMBEDDING)
+clean_embedding:
+	rm -rf $(EMBEDDING) $(EMBEDDING).syn0.npy
+
+clean_sentences:
+	rm -rf $(SENTENCE_ALL)
+
+clean_data: clean_sentences clean_embedding
 
 nltk: $(NLTK_DIR_DONE)
 	@echo "done"

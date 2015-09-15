@@ -71,27 +71,10 @@ def makeFeatureVec(words, model, num_features):
 
 
 def get_word2vec_features(document_iter, model):
-    """
-    Given a set of reviews (each one a list of words), calculate
-    the average feature vector for each one and return a 2D numpy array
-    """
-    _, num_features = model.syn0.shape
-
-    reviews = list(document_iter)
-    num_reviews = len(reviews)
-
-    # Preallocate a 2D numpy array, for speed
-    result = np.zeros((num_reviews, num_features), dtype="float32")
-    for idx, doc in enumerate(reviews):
-        result[idx] = makeFeatureVec(chain(*doc), model, num_features)
-    return result
-
-
-def get_doc2vec_features(document_iter, model):
 
     _, num_features = model.syn0.shape
 
-    doc_sent_labels = list(sentence_iter(document_iter))
+    doc_sent_labels = list(sentence_iter(document_iter, cfg=CONFIG['train']))
     num_docs = len(doc_sent_labels)
 
     # Preallocate a 2D numpy array, for speed
@@ -101,7 +84,7 @@ def get_doc2vec_features(document_iter, model):
         nvecs = 0
         vector = np.zeros((num_features,), dtype="float32")
         for sentence, this_labels in labels:
-            this_vector = makeFeatureVec(chain(sentence, this_labels), model, num_features)
+            this_vector = makeFeatureVec(sentence, model, num_features)
             vector = np.add(vector, this_vector)
             nvecs += 1
         vector = np.divide(vector, float(nvecs))
@@ -189,7 +172,7 @@ def build_grid(args, is_mixed):
     if is_mixed:
         transformer_list = []
         transformer_weights = {}
-        if set(feature_set_names).intersection(['word2vec', 'doc2vec']):
+        if set(feature_set_names).intersection(['embedding']):
             transformer_weights['embedding'] = 1.0
             transformer_list.append(
                 # ('embedding', Pipeline([
@@ -315,7 +298,7 @@ def parse_args(args=None):
 def get_data(args):
 
     feature_set_names = CONFIG['train']['features']
-    if set(feature_set_names).intersection(['word2vec', 'doc2vec']) and not args.embedding:
+    if set(feature_set_names).intersection(['embedding']) and not args.embedding:
         raise RuntimeError("--embedding argument must be supplied")
 
     # get input data
@@ -337,9 +320,7 @@ def get_data(args):
         embedding.__class__ = type('MyGlove', (Glove, GloveWrapper), {})
 
     # get feature vectors
-    if 'doc2vec' in CONFIG['train']['features']:
-        embedding_vectors = get_doc2vec_features(sentences, embedding)
-    elif 'word2vec' in CONFIG['train']['features']:
+    if 'embedding' in CONFIG['train']['features']:
         embedding_vectors = get_word2vec_features(sentences, embedding)
     else:
         raise RuntimeError("Invalid config setting train:features=%s" % CONFIG['train']['features'])
