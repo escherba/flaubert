@@ -9,7 +9,7 @@ make nltk
 #rm -f data/300features_40minwords_10context
 
 #make -j2 preprocess
-#make -j2 pretrain
+make -j2 pretrain
 
 #make train_vectors
 make train

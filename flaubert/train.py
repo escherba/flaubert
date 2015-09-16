@@ -7,7 +7,7 @@ from itertools import chain, izip
 from collections import Counter
 from sklearn.cross_validation import train_test_split
 from sklearn.grid_search import GridSearchCV
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, roc_curve, auc
 from sklearn.svm import LinearSVC
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier, \
@@ -245,6 +245,15 @@ def train_model(args, X_train, X_test, y_train, y_test, is_mixed=False):
     print(classification_report(y_true, y_pred))
     print()
 
+    print("ROC curve")
+    pred_probas = clf.decision_function(X_test)
+    fpr, tpr, _ = roc_curve(y_test, pred_probas)
+    roc_auc = auc(fpr, tpr)
+    print("AUC = %.3f" % roc_auc)
+
+    if args.plot_roc:
+        plot_roc(args.plot_roc, fpr, tpr, roc_auc)
+
     print("Best parameters set found on development set:")
     print()
     print(clf.best_params_)
@@ -253,6 +262,16 @@ def train_model(args, X_train, X_test, y_train, y_test, is_mixed=False):
     print("Best score: %s=%f" % (scoring, clf.best_score_))
     print()
     return clf
+
+
+def plot_roc(output_file, fpr, tpr, roc_auc):
+    import matplotlib.pyplot as plt
+    plt.plot(fpr, tpr, label='AUC = %.3f' % roc_auc)
+    plt.plot([0, 1], [0, 1], 'k--')
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.legend(loc='lower right')
+    plt.savefig(output_file)
 
 
 def feat_imp(args, y, X, num_features=25):
@@ -287,6 +306,8 @@ def parse_args(args=None):
                         help='(Labeled) training set')
     parser.add_argument('--plot_features', type=str, default=None,
                         help='file to save feature comparison to')
+    parser.add_argument('--plot_roc', type=str, default=None,
+                        help='file to save feature comparison to')
     parser.add_argument('--sentences', type=GzipFileType('r'), nargs='*', default=[],
                         help='File containing sentences in JSON format (implies doc2vec)')
     parser.add_argument('--vectors', metavar='FILE', type=str, default=None,
@@ -307,7 +328,8 @@ def get_data(args):
 
     if not args.embedding or feature_set_names == ['bow']:
         # don't drop NaNs -- have a sparse matrix here
-        return False, (get_bow_features(sentences), y_labels)
+        X = get_bow_features(sentences)
+        return False, (X, y_labels)
 
     # load embedding
     if CONFIG['pretrain']['algorithm'] == 'word2vec':
@@ -326,10 +348,12 @@ def get_data(args):
         raise RuntimeError("Invalid config setting train:features=%s" % CONFIG['train']['features'])
 
     if 'bow' in feature_set_names:
-        return True, get_mixed_features(sentences, embedding_vectors, y_labels)
+        X, y_labels = get_mixed_features(sentences, embedding_vectors, y_labels)
+        return True, (X, y_labels)
     else:
         # matrix is dense -- drop NaNs
-        return False, drop_nans(embedding_vectors, y_labels)
+        X, y_labels = drop_nans(embedding_vectors, y_labels)
+        return False, (X, y_labels)
 
 
 def get_data_alt(args):
