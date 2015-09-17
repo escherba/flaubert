@@ -3,7 +3,7 @@
 PYENV = . env/bin/activate;
 PYTHON = $(PYENV) python
 PIP = $(PYENV) pip
-EXTRAS_REQS := $(wildcard extras-*-requirements.txt)
+EXTRAS_REQS := dev-requirements.txt $(wildcard extras-*-requirements.txt)
 
 include analysis.mk
 

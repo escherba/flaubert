@@ -35,21 +35,24 @@ class TestFeatureTokens(unittest.TestCase, SetComparisonMixin):
 
     def test_sentence_split_ellipsis(self):
         """
-        The sentence splitter we use does not treat ellipsis as a sentence terminator
-        if the word after it is not capitalized
+        Make sure there is a sentence break after ellipsis
+
+        Note: The sentence splitter we use does not treat ellipsis as a
+        sentence terminator if the word after it is not capitalized.
         """
-        text = u"I had a feeling that after \"Submerged\", this one wouldn't be any better... I was right."
-        self.assertEqual(2, len(self.sentence_tokenize(text)))
+        text = u"I had a feeling that after \"Submerged\", this one wouldn't " \
+               u"be any better... I was right."
+        sentences = self.sentence_tokenize(text)
+        self.assertEqual(2, len(sentences))
 
     def test_sentence_split_br(self):
         """
-        Make sure HTML <BR> tag is recognized as newline/break. In this case,
-        make sure that there is a sentence break before "O.K."
+        Make sure there is a sentence break before "O.K."
         """
         text = u'Memorable lines like: "You son-of-a-gun!", "You son-of-a-witch!",' \
-            u' "Shoot!", and "Well, Forget You!"<br /><br />O.K. Bye.'
-        disjoint = self.sentence_tokenize(text)
-        joint = u' | '.join([u' '.join(sent) for sent in disjoint])
+               u' "Shoot!", and "Well, Forget You!"<br /><br />O.K. Bye.'
+        sentences = self.sentence_tokenize(text)
+        joint = u' | '.join([u' '.join(sentence) for sentence in sentences])
         self.assertIn(u' | o', joint)
 
     def test_western_emoticons_happy(self):
