@@ -305,8 +305,8 @@ class SimpleSentenceTokenizer(object):
                 # TODO: why was the (now commented-out) line below here?
                 # return punkt, punkt.tokenize
                 return punkt, punkt.sentences_from_text
-            elif sentence_tokenizer[0] == 'data':
-                tokenizer_path = os.path.join('..', 'data', sentence_tokenizer[1])
+            else:
+                tokenizer_path = os.path.join('..', *sentence_tokenizer)
                 tokenizer_path = resource_filename(__name__, tokenizer_path)
                 if os.path.exists(tokenizer_path):
                     with open_gz(tokenizer_path, 'rb') as fhandle:
@@ -322,8 +322,6 @@ class SimpleSentenceTokenizer(object):
                     return punkt, punkt.sentences_from_text
                 else:
                     logging.warn("Tokenizer not found at %s", tokenizer_path)
-            else:
-                raise ValueError("Invalid sentence tokenizer class")
         return _sentence_tokenizer, _sentence_tokenize
 
     @staticmethod
