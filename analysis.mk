@@ -1,6 +1,7 @@
 NLTK_DIR = nltk_data
 NLTK_DIR_DONE = $(NLTK_DIR)/make.done
 DATA_DIR = data/aclImdb
+ROC_OUTPUT = $(DATA_DIR)/roc.png
 TESTING_DATA = $(DATA_DIR)/testData
 TRAINING_LABELED = $(wildcard $(DATA_DIR)/labeledTrainData-*.tsv)
 TRAINING_UNLABELED =  $(wildcard $(DATA_DIR)/unlabeledTrainData-*.tsv)
@@ -37,6 +38,7 @@ pretrain: $(EMBEDDING)
 train: $(TRAINING_LABELED) $(SENTENCE_LABELED) $(EMBEDDING)
 	@echo "Training classifier"
 	$(PYTHON) -m flaubert.train \
+		--plot_roc $(ROC_OUTPUT) \
 		--embedding $(EMBEDDING) \
 		--train $(TRAINING_LABELED) \
 		--sentences $(SENTENCE_LABELED)
