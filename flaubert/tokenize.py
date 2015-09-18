@@ -7,6 +7,7 @@ from pymaptools.inspect import get_object_attrs
 
 FIND_STARS = re.compile(u'\\*').findall
 STRIP_NONWORD = partial(re.compile(u'\\W+').sub, u'')
+STRIP_SPACES = partial(re.compile(u'\\s+').sub, u'')
 
 NUM2DEC = {
     u'zero': 0,
@@ -85,13 +86,15 @@ DEFAULT_FEATURE_MAP = u"""
 |
 (?P<THREED>\\b3\\-?d\\b)
 |
+(?P<CURRENCY>(?<=\\s)\\p{Sc}+(?=(?:\\s|[0-9])))
+|
 (?P<DECADE>\\b((?:18|19|20)?[0-9]0)(?:\\s*'\\s*)?s\\b)
 |
 (?P<ASCIIARROW_RIGHT>([\\-=]?\\>{2,}|[\\-=]+\\>))        # -->, ==>, >>, >>>
 |
 (?P<ASCIIARROW_LEFT>(\\<{2,}[\\-=]?|\\<[\\-=]+))         # <<<, <<, <==, <--
 |
-(?P<MNDASH>(?:\\-{2,3})|\\u2013|\\u2014)
+(?P<MNDASH>\\s\\-\\s|\\-{2,3}|\\u2013|\\u2014)
 |
 (?P<ABBREV1>\\b\\p{L}([&\\/\\-\\+])\\p{L}\\b)            # entities like S&P, w/o
 |
@@ -273,6 +276,9 @@ class RegexpFeatureTokenizer(object):
     def handle_decade(self, match, *args):
         yield STRIP_NONWORD(match.group()).lower()
 
+    def handle_currency(self, match, *args):
+        yield match.group()[0]
+
     def grade_handler(self, match, *args):
         grade = match.group(match.lastindex + 1).upper()
         yield self.groupname_format % u'_'.join([u"GRADE", grade])
@@ -282,15 +288,12 @@ class RegexpFeatureTokenizer(object):
 
     def handle_mndash(self, match, *args):
         extracted = match.group()
-        len_extracted = len(extracted)
-        if len_extracted == 2:
-            yield u'--'
-        elif len_extracted == 3:
-            yield u'---'
-        elif extracted == u'\u2013':
+        if extracted == u'\u2013':
             yield u'--'
         elif extracted == u'\u2014':
             yield u'---'
+        else:
+            yield STRIP_SPACES(extracted)
 
     def handle_ellipsis(self, match, *args):
         extracted = match.group()
