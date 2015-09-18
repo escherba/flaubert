@@ -1,18 +1,23 @@
 NLTK_DIR = nltk_data
 NLTK_DIR_DONE = $(NLTK_DIR)/make.done
-DATA_DIR = data/aclImdb
-ROC_OUTPUT = $(DATA_DIR)/roc.png
-TESTING_DATA = $(DATA_DIR)/testData
-TRAINING_LABELED = $(wildcard $(DATA_DIR)/labeledTrainData-*.tsv)
-TRAINING_UNLABELED =  $(wildcard $(DATA_DIR)/unlabeledTrainData-*.tsv)
+
+CFG = python -m flaubert.conf --key
+
+EXT = $(shell $(CFG) data extension)
+DATA_DIR = $(shell $(CFG) data directory)
+
+TESTING_DATA = $(DATA_DIR)/$(shell $(CFG) data test_final)
+TRAINING_LABELED = $(wildcard $(DATA_DIR)/$(shell $(CFG) data train_labeled).$(EXT))
+TRAINING_UNLABELED =  $(wildcard $(DATA_DIR)/$(shell $(CFG) data train_unlabeled).$(EXT))
 TRAINING_ALL = $(TRAINING_LABELED) $(TRAINING_UNLABELED)
-SENTENCE_LABELED := $(TRAINING_LABELED:.tsv=.sents.gz)
-SENTENCE_UNLABELED := $(TRAINING_UNLABELED:.tsv=.sents.gz)
+SENTENCE_LABELED := $(TRAINING_LABELED:.$(EXT)=.sents.gz)
+SENTENCE_UNLABELED := $(TRAINING_UNLABELED:.$(EXT)=.sents.gz)
 SENTENCE_ALL := $(SENTENCE_LABELED) $(SENTENCE_UNLABELED)
 
 EMBEDDING = $(DATA_DIR)/300features_40minwords_10context
 SENT_TOKENIZER = $(DATA_DIR)/sentence_tokenizer.pickle
 CORP_MODEL = $(DATA_DIR)/glove-corpus.model
+ROC_OUTPUT = $(DATA_DIR)/roc.png
 
 export NLTK_DATA=$(NLTK_DIR)
 
@@ -46,7 +51,7 @@ train: $(TRAINING_LABELED) $(SENTENCE_LABELED) $(EMBEDDING)
 train_vectors:
 	$(PYTHON) -m flaubert.train --vectors data/imdb-old.pkl
 
-%.tsv: %.tsv.zip
+%.$(EXT): %.$(EXT).zip
 	unzip -p $< > $@
 
 $(EMBEDDING): $(SENTENCE_ALL)
@@ -60,9 +65,9 @@ $(NLTK_DIR_DONE):
 	$(PYTHON) -m nltk.downloader -d $(NLTK_DIR) wordnet stopwords punkt maxent_treebank_pos_tagger
 	touch $@
 
-%.sents.gz: %.tsv | $(NLTK_DIR_DONE) $(SENT_TOKENIZER)
+%.sents.gz: %.$(EXT) | $(NLTK_DIR_DONE) $(SENT_TOKENIZER)
 	@echo "Building $@"
-	$(PYTHON) -m flaubert.preprocess --input $*.tsv --output $@ tokenize --sentences
+	$(PYTHON) -m flaubert.preprocess --input $*.$(EXT) --output $@ tokenize --sentences
 
 $(SENT_TOKENIZER): $(TRAINING_ALL)
 	@echo "Building tokenizer at $@"

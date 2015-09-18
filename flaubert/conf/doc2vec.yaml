@@ -1,3 +1,10 @@
+data:
+    directory: 'data/aclImdb'
+    train_labeled: 'labeledTrainData-*'
+    train_unlabeled: 'unlabeledTrainData-*'
+    test_final: 'testData'
+    extension: tsv
+
 tokenizer:
     unicode_form: "NFKC"
     nltk_stop_words: "english"
