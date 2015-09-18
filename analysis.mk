@@ -1,23 +1,22 @@
-NLTK_DIR = nltk_data
-NLTK_DIR_DONE = $(NLTK_DIR)/make.done
+NLTK_DIR := nltk_data
+NLTK_DIR_DONE := $(NLTK_DIR)/make.done
 
-CFG = python -m flaubert.conf --key
+CFG := python -m flaubert.conf --key
+EXT := $(shell $(CFG) data extension)
+DATA_DIR := $(shell $(CFG) data directory)
 
-EXT = $(shell $(CFG) data extension)
-DATA_DIR = $(shell $(CFG) data directory)
-
-TESTING_DATA = $(DATA_DIR)/$(shell $(CFG) data test_final)
-TRAINING_LABELED = $(wildcard $(DATA_DIR)/$(shell $(CFG) data train_labeled).$(EXT))
-TRAINING_UNLABELED =  $(wildcard $(DATA_DIR)/$(shell $(CFG) data train_unlabeled).$(EXT))
-TRAINING_ALL = $(TRAINING_LABELED) $(TRAINING_UNLABELED)
+TESTING_DATA := $(DATA_DIR)/$(shell $(CFG) data test_final)
+TRAINING_LABELED := $(wildcard $(DATA_DIR)/$(shell $(CFG) data train_labeled).$(EXT))
+TRAINING_UNLABELED :=  $(wildcard $(DATA_DIR)/$(shell $(CFG) data train_unlabeled).$(EXT))
+TRAINING_ALL := $(TRAINING_LABELED) $(TRAINING_UNLABELED)
 SENTENCE_LABELED := $(TRAINING_LABELED:.$(EXT)=.sents.gz)
 SENTENCE_UNLABELED := $(TRAINING_UNLABELED:.$(EXT)=.sents.gz)
 SENTENCE_ALL := $(SENTENCE_LABELED) $(SENTENCE_UNLABELED)
 
-EMBEDDING = $(DATA_DIR)/300features_40minwords_10context
-SENT_TOKENIZER = $(DATA_DIR)/sentence_tokenizer.pickle
-CORP_MODEL = $(DATA_DIR)/glove-corpus.model
-ROC_OUTPUT = $(DATA_DIR)/roc.png
+EMBEDDING := $(DATA_DIR)/300features_40minwords_10context
+SENT_TOKENIZER := $(DATA_DIR)/sentence_tokenizer.pickle
+CORP_MODEL := $(DATA_DIR)/glove-corpus.model
+ROC_OUTPUT := $(DATA_DIR)/roc.png
 
 export NLTK_DATA=$(NLTK_DIR)
 
