@@ -1,17 +1,14 @@
 data:
-    directory: 'data/aclImdb'
-    labeled_fields: {'Y': 'sentiment', 'X': 'review'}
-    unlabeled_fields: {'X': 'review'}
-    train_labeled: 'labeledTrainData-*'
-    train_unlabeled: 'unlabeledTrainData-*'
-    test_final: 'testData'
-    extension: tsv
+    directory: 'data/si650winter11'
+    labeled_fields: {'Y': 0, 'X': 1}
+    unlabeled_fields: {'X': 0}
+    train_labeled: 'training'
+    train_unlabeled: ''
+    test_final: 'testdata'
+    extension: txt
     read_csv_kwargs:
-        header: 0
-        quoting: 2
+        header: null
         delimiter: "\t"
-        escapechar: "\\"
-        quotechar: '"'
         encoding: "utf-8"
 
 tokenizer:
@@ -50,17 +47,17 @@ preprocess:
     stemmer: null           # null or "porter"
 
 pretrain:
-    split_by_sentence: false
-    doc2vec_labels: ['document']   # [] or ['document'] or ['sentence', 'document']
-    algorithm: "word2vec"    # either word2vec or glove
-    embedding: "doc2vec"    # for word2vec algo, either word2vec or doc2vec
+    split_by_sentence: true
+    doc2vec_labels: ['sentence']   # allowed labels: ['sentence', 'document']
+    algorithm: "glove"    # either word2vec or glove
+    embedding: "word2vec"    # for word2vec algo, either word2vec or doc2vec
 
 train:
     split_by_sentence: false
     doc2vec_labels: []   # [] or ['document'] or ['sentence', 'document']
     classifier: 'svm'
     scoring: 'f1'
-    features: ["embedding"]  # "bow" and/or "embedding"
+    features: ["embedding"]   # either "bow" or "embedding" or both
     nltk_stop_words: null    # either null or "english" or others...
 
 glove:

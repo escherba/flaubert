@@ -6,6 +6,7 @@ from fastcache import clru_cache
 from sklearn.base import BaseEstimator, TransformerMixin
 from pymaptools.vectorize import enumerator
 from pymaptools.iter import isiterable
+from flaubert.conf import CONFIG
 
 
 TREEBANK2WORDNET = {
@@ -22,8 +23,7 @@ def read_tsv(file_input, iterator=False, chunksize=None):
     """
     return pandas.read_csv(
         file_input, iterator=iterator, chunksize=chunksize,
-        header=0, quoting=2, delimiter="\t", escapechar="\\", quotechar='"',
-        encoding="utf-8")
+        **CONFIG['data']['read_csv_kwargs'])
 
 
 def pd_row_iter(datasets, chunksize=1000, field=None):
@@ -50,18 +50,6 @@ def pd_row_iter(datasets, chunksize=1000, field=None):
 def pd_dict_iter(datasets, chunksize=1000):
     for idx, row in pd_row_iter(datasets, chunksize=chunksize):
         yield dict(row)
-
-
-def pd_field_iter(field, datasets, chunksize=1000):
-    """Produce an iterator over values for a particular field in Pandas
-    dataframe while reading from files on disk
-
-    @param field: a string specifying field name of interest
-    @param datasets: a list of filenames or file handles
-    @param chunksize: how many lines to read at once
-    """
-    for row in pd_row_iter(datasets, chunksize=chunksize):
-        yield row[field]
 
 
 def lru_wrap(func, cache_size=None):

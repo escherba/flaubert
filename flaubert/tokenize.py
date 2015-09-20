@@ -5,8 +5,9 @@ from functools import partial
 from collections import deque
 from pymaptools.inspect import get_object_attrs
 
-RE_FIND_STARS = re.compile(u'\\*').findall
-RE_STRIP_NOISE = partial(re.compile(u'[\\s:\\-]+').sub, u'')
+FIND_STARS = re.compile(u'\\*').findall
+STRIP_NONWORD = partial(re.compile(u'\\W+').sub, u'')
+STRIP_SPACES = partial(re.compile(u'\\s+').sub, u'')
 
 NUM2DEC = {
     u'zero': 0,
@@ -38,7 +39,7 @@ CONTRACTION_FIRST_MAP = {
 def count_stars(num_stars):
     dec_num_stars = NUM2DEC.get(num_stars)
     if dec_num_stars is None:
-        dec_num_stars = len(RE_FIND_STARS(num_stars))
+        dec_num_stars = len(FIND_STARS(num_stars))
         if dec_num_stars == 0:
             dec_num_stars = int(num_stars)
     return float(dec_num_stars)
@@ -85,19 +86,15 @@ DEFAULT_FEATURE_MAP = u"""
 |
 (?P<THREED>\\b3\\-?d\\b)
 |
-(?P<DECADE>\\b((?:18|19|20)?[0-9]0)(?:'?(?:s\\b)?|\\b))
+(?P<CURRENCY>(?<=\\s)\\p{Sc}+(?=(?:\\s|[0-9])))
+|
+(?P<DECADE>\\b((?:18|19|20)?[0-9]0)(?:\\s*'\\s*)?s\\b)
 |
 (?P<ASCIIARROW_RIGHT>([\\-=]?\\>{2,}|[\\-=]+\\>))        # -->, ==>, >>, >>>
 |
 (?P<ASCIIARROW_LEFT>(\\<{2,}[\\-=]?|\\<[\\-=]+))         # <<<, <<, <==, <--
 |
-(?P<MNDASH>(?:\\-{2,3})|\\u2013|\\u2014)
-|
-(?P<COLON>:+(?!\\/\\/))                                  # colon (unless a part of URI scheme)
-|
-(?P<EMPHMARK>[!?¡¿]+)                                    # emphasis characters
-|
-(?P<ELLIPSIS>\\.+\\s*\\.+|\\u2026)                       # ellipsis
+(?P<MNDASH>\\s\\-\\s|\\-{2,3}|\\u2013|\\u2014)
 |
 (?P<ABBREV1>\\b\\p{L}([&\\/\\-\\+])\\p{L}\\b)            # entities like S&P, w/o
 |
@@ -105,7 +102,11 @@ DEFAULT_FEATURE_MAP = u"""
 |
 (?P<ABBREV3>\\b(?:\\p{L}\\.){2,})                        # abbreviation with periods like U.S.
 |
-(\\p{L}+)                                                # any non-zero sequence of letters
+(?P<ELLIPSIS>(?:\\.\\s*){2,}|\\u2026)                    # ellipsis
+|
+(?::+(?!\\/\\/)|[!?¡¿]+|[,\\.])                          # punctuation
+|
+(\\w+)                                                # any non-zero sequence of letters
 """ % dict(
     number=u'|'.join(NUM2DEC.keys())
 )
@@ -266,16 +267,17 @@ class RegexpFeatureTokenizer(object):
     def handle_starrating_full(self, match, *args):
         yield u"<10/10>"
 
-    def simple_entity_handler(self, match, *args):
-        yield self.groupname_format % RE_STRIP_NOISE(match.group()).upper()
+    def wrapped_entity_handler(self, match, *args):
+        yield self.groupname_format % STRIP_NONWORD(match.group()).upper()
 
-    def extractor_handler(self, match, *args):
-        extracted = match.group(match.lastindex + 1).upper()
-        yield extracted
+    handle_mpaarating = wrapped_entity_handler
+    handle_threed = wrapped_entity_handler
 
-    handle_mpaarating = simple_entity_handler
-    handle_threed = simple_entity_handler
-    handle_decade = extractor_handler
+    def handle_decade(self, match, *args):
+        yield STRIP_NONWORD(match.group()).lower()
+
+    def handle_currency(self, match, *args):
+        yield match.group()[0]
 
     def grade_handler(self, match, *args):
         grade = match.group(match.lastindex + 1).upper()
@@ -286,22 +288,19 @@ class RegexpFeatureTokenizer(object):
 
     def handle_mndash(self, match, *args):
         extracted = match.group()
-        len_extracted = len(extracted)
-        if len_extracted == 2:
-            yield u'--'
-        elif len_extracted == 3:
-            yield u'---'
-        elif extracted == u'\u2013':
+        if extracted == u'\u2013':
             yield u'--'
         elif extracted == u'\u2014':
             yield u'---'
+        else:
+            yield STRIP_SPACES(extracted)
 
     def handle_ellipsis(self, match, *args):
         extracted = match.group()
         if extracted == u"\u2026":
             yield u"..."
         else:
-            yield RE_STRIP_NOISE(extracted)
+            yield STRIP_NONWORD(extracted)
 
     def __call__(self, text):
         return self.tokenize(text)

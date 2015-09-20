@@ -33,10 +33,9 @@ def sentence_iter(document_iter, cfg):
 
 
 def doc_iter(args):
-    field = args.field
     for fname in args.input:
         for doc in read_json_lines(fname):
-            yield doc[field]
+            yield doc['X']
 
 
 def get_sentences(args):
@@ -59,8 +58,6 @@ def parse_args(args=None):
     parser = PathArgumentParser()
     parser.add_argument('--input', type=str, metavar='FILE', nargs='+',
                         help='Input files')
-    parser.add_argument('--field', type=str, default='review',
-                        help='Field name (Default: review)')
     parser.add_argument('--verbose', action='store_true',
                         help='be verbose')
     parser.add_argument('--output', type=str, required=True,

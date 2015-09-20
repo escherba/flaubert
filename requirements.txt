@@ -9,4 +9,5 @@ fastcache
 numpy==1.9.2
 six==1.9.0
 scikit-learn==0.16.1
+cython==0.23.2
 git+https://github.com/escherba/pymaptools#egg=pymaptools-0.1.15

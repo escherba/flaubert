@@ -19,7 +19,8 @@ from sklearn.linear_model import LogisticRegression
 from nltk.corpus import stopwords
 from pymaptools.io import PathArgumentParser, GzipFileType, read_json_lines, open_gz
 from flaubert.pretrain import sentence_iter
-from flaubert.utils import ItemSelector, pd_row_iter, BagVectorizer
+from flaubert.preprocess import get_sliced_iterator
+from flaubert.utils import ItemSelector, pd_dict_iter, BagVectorizer
 from flaubert.conf import CONFIG
 
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
@@ -323,8 +324,8 @@ def get_data(args):
         raise RuntimeError("--embedding argument must be supplied")
 
     # get input data
-    y_labels = np.array(list(pd_row_iter(args.train, field="sentiment")), dtype=float)
-    sentences = [obj['review'] for obj in chain.from_iterable(read_json_lines(x) for x in args.sentences)]
+    y_labels = np.array([row['Y'] for row in get_sliced_iterator(pd_dict_iter, args.train)], dtype=float)
+    sentences = [obj['X'] for obj in chain.from_iterable(read_json_lines(x) for x in args.sentences)]
 
     if not args.embedding or feature_set_names == ['bow']:
         # don't drop NaNs -- have a sparse matrix here
