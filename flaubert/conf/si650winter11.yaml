@@ -1,17 +1,14 @@
 data:
-    directory: 'data/aclImdb'
-    labeled_fields: {'Y': 'sentiment', 'X': 'review'}
-    unlabeled_fields: {'X': 'review'}
-    train_labeled: 'labeledTrainData-*'
-    train_unlabeled: 'unlabeledTrainData-*'
-    test_final: 'testData'
-    extension: tsv
+    directory: 'data/si650winter11'
+    labeled_fields: {'Y': 0, 'X': 1}
+    unlabeled_fields: {'X': 0}
+    train_labeled: 'training'
+    train_unlabeled: ''
+    test_final: 'testdata'
+    extension: txt
     read_csv_kwargs:
-        header: 0
-        quoting: 2
+        header: null
         delimiter: "\t"
-        escapechar: "\\"
-        quotechar: '"'
         encoding: "utf-8"
 
 tokenizer:
