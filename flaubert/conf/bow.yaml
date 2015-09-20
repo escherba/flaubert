@@ -61,7 +61,7 @@ train:
     split_by_sentence: false
     doc2vec_labels: []   # [] or ['document'] or ['sentence', 'document']
     classifier: 'svm'
-    scoring: 'f1'
+    scoring: 'accuracy'
     features: ["bow"]   # either "bow" or "embedding" or both
     nltk_stop_words: null    # either null or "english" or others...
 
@@ -81,9 +81,9 @@ word2vec:
 
 doc2vec:
     dm: 1               # 1 for skip-gram (default), cbow otherwise
-    size: 800           # Number of features
-    min_count: 20       # Minimum word count
-    window: 10          # max distance between the current and predicted word
+    size: 400           # Number of features
+    min_count: 40       # Minimum word count
+    window: 20          # max distance between the current and predicted word
     sample: 0.001       # Downsample setting for frequent words
     seed: 1337          # for random number generator
     train_words: true

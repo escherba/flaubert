@@ -228,31 +228,26 @@ def train_model(args, X_train, X_test, y_train, y_test, is_mixed=False):
               % (mean_score, scores.std() * 2, params))
     print()
 
-    print("Detailed classification report:")
+    print("Best parameters set found on development set:")
+    print(clf.best_params_)
     print()
-    print("The model is trained on the full development set.")
-    print("The scores are computed on the full evaluation set.")
+    print("Best score from the development set:")
+    print("%s=%f" % (scoring, clf.best_score_))
+    print()
+
+    print("Classification report on the evaluation set:")
     print()
     y_true, y_pred = y_test, clf.predict(X_test)
     print(classification_report(y_true, y_pred))
-    print()
 
-    print("ROC curve")
     pred_probas = clf.decision_function(X_test)
     fpr, tpr, _ = roc_curve(y_test, pred_probas)
     roc_auc = auc(fpr, tpr)
-    print("AUC = %.3f" % roc_auc)
+    print("ROC AUC = %.3f" % roc_auc)
 
     if args.plot_roc:
         plot_roc(args.plot_roc, fpr, tpr, roc_auc)
 
-    print("Best parameters set found on development set:")
-    print()
-    print(clf.best_params_)
-    print()
-
-    print("Best score: %s=%f" % (scoring, clf.best_score_))
-    print()
     return clf
 
 
