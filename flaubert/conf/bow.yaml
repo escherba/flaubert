@@ -61,7 +61,7 @@ train:
     split_by_sentence: false
     doc2vec_labels: []   # [] or ['document'] or ['sentence', 'document']
     classifier: 'svm'
-    scoring: 'f1'
+    scoring: 'accuracy'
     features: ["bow"]   # either "bow" or "embedding" or both
     nltk_stop_words: null    # either null or "english" or others...
 
