@@ -6,6 +6,7 @@ from fastcache import clru_cache
 from sklearn.base import BaseEstimator, TransformerMixin
 from pymaptools.vectorize import enumerator
 from pymaptools.iter import isiterable
+from pymaptools.io import read_json_lines
 from flaubert.conf import CONFIG
 
 
@@ -15,6 +16,12 @@ TREEBANK2WORDNET = {
     'N': wordnet.wordnet.NOUN,
     'R': wordnet.wordnet.ADV
 }
+
+
+def json_field_iter(files, field=None):
+    for fname in files:
+        for doc in read_json_lines(fname):
+            yield doc if field is None else doc[field]
 
 
 def read_tsv(file_input, iterator=False, chunksize=None):
@@ -139,3 +146,17 @@ class BagVectorizer(BaseEstimator, TransformerMixin):
 
     def get_feature_names(self):
         return self.feature_names_
+
+
+def drop_nans(X, y):
+    """Drop rows which contain NaNs
+
+    Assumes X and y are of equal length, but X is a matrix
+    and y is a vector
+    """
+    X_nans = np.isnan(X).any(axis=1)
+    y_nans = np.asarray(np.isnan(y))
+    nans = X_nans | y_nans
+    y = y[~nans]
+    X = X[~nans]
+    return X, y
