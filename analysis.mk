@@ -23,7 +23,7 @@ export NLTK_DATA=$(NLTK_DIR)
 .SECONDARY: $(SENT_TOKENIZER) $(SENTENCE_ALL) $(EMBEDDING)
 
 clean_embedding:
-	rm -rf $(EMBEDDING) $(EMBEDDING).syn0.npy
+	rm -rf $(EMBEDDING) $(EMBEDDING).syn0.npy $(CORP_MODEL)
 
 clean_sentences:
 	rm -rf $(SENTENCE_ALL)

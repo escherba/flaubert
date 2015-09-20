@@ -491,7 +491,7 @@ def get_sliced_iterator(iter_factory, input_labeled, input_unlabeled=None,
         num_labeled += 1
     if input_unlabeled:
         cfg = CONFIG['data']['unlabeled_fields']
-        x_field, y_field = cfg['X'], cfg['Y']
+        x_field = cfg['X']
         iterator_unlabeled = iter_factory(input_unlabeled)
         if num_remaining:
             num_remaining = num_remaining - num_labeled
@@ -530,10 +530,10 @@ def train_sentence_tokenizer(args):
 def parse_args(args=None):
     parser = PathArgumentParser()
     parser.add_argument('--input_labeled', type=GzipFileType('r'),
-                        default=[sys.stdin], nargs='*',
+                        default=(), required=False, nargs='*',
                         help='Labeled input files (TSV format, optionally compressed)')
     parser.add_argument('--input_unlabeled', type=GzipFileType('r'),
-                        nargs='*', required=False,
+                        default=(), required=False, nargs='*',
                         help='Unlabeled input files (TSV format, optionally compressed)')
     parser.add_argument('--limit', type=int, default=None,
                         help='Only process this many lines (for testing)')
