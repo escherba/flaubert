@@ -13,10 +13,10 @@ from pymaptools.io import GzipFileType, read_json_lines
 
 def vectorize_sentences(enum, input_iter):
     for obj in input_iter:
-        sentiment = obj['sentiment']
-        review = obj['review']
-        doc = [enum[w] for w in chain(*review)]
-        yield (doc, sentiment)
+        label = obj['Y']
+        sentences = obj['X']
+        doc = [enum[w] for w in chain(*sentences)]
+        yield (doc, label)
 
 
 def parse_args(args=None):

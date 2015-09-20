@@ -477,51 +477,64 @@ def get_words(field, row, **kwargs):
     return row
 
 
-def get_review_iterator(args):
-    iterator = pd_dict_iter(args.input, chunksize=1000)
-    if args.limit:
-        iterator = islice(iterator, args.limit)
-    return iterator
-
-
-def get_mapper_method(args):
-    if args.sentences:
-        mapper = get_sentences
-    else:
-        mapper = get_words
-    return mapper
+def get_sliced_iterator(iter_factory, input_labeled, input_unlabeled=None,
+                        limit=None):
+    cfg = CONFIG['data']['labeled_fields']
+    x_field, y_field = cfg['X'], cfg['Y']
+    iterator_labeled = iter_factory(input_labeled)
+    num_remaining = limit
+    if num_remaining:
+        iterator_labeled = islice(iterator_labeled, num_remaining)
+    num_labeled = 0
+    for row in iterator_labeled:
+        yield {'Y': row[y_field], 'X': row[x_field]}
+        num_labeled += 1
+    if input_unlabeled:
+        cfg = CONFIG['data']['unlabeled_fields']
+        x_field, y_field = cfg['X'], cfg['Y']
+        iterator_unlabeled = iter_factory(input_unlabeled)
+        if num_remaining:
+            num_remaining = num_remaining - num_labeled
+            iterator_unlabeled = islice(iterator_unlabeled, num_remaining)
+        for row in iterator_unlabeled:
+            yield {'X': row[x_field]}
 
 
 def run_tokenize(args):
-    iterator = get_review_iterator(args)
-    mapper = get_mapper_method(args)
+    iterator = get_sliced_iterator(
+        pd_dict_iter, args.input_labeled, args.input_unlabeled,
+        args.limit
+    )
+    mapper = get_sentences if args.sentences else get_words
     write_record = partial(write_json_line, args.output)
-    field = args.field
     if args.n_jobs == 1:
         # turn off parallelism
         for row in iterator:
-            record = mapper(field, row)
+            record = mapper('X', row)
             write_record(record)
     else:
         # enable parallellism
         for record in Parallel(n_jobs=args.n_jobs, verbose=10)(
-                delayed(mapper)(field, row) for row in iterator):
+                delayed(mapper)('X', row) for row in iterator):
             write_record(record)
 
 
 def train_sentence_tokenizer(args):
-    field = args.field
-    iterator = (obj[field] for obj in get_review_iterator(args))
+    iterator = (obj['X'] for obj in
+                get_sliced_iterator(pd_dict_iter, args.input_labeled,
+                                    args.input_unlabeled, args.limit))
     TOKENIZER.train(iterator, verbose=args.verbose)
     TOKENIZER.save_sentence_model(args.output)
 
 
 def parse_args(args=None):
     parser = PathArgumentParser()
-    parser.add_argument('--input', type=GzipFileType('r'), default=[sys.stdin], nargs='*',
-                        help='Input file (in TSV format, optionally compressed)')
-    parser.add_argument('--field', type=str, default='review',
-                        help='Field name (Default: review)')
+    parser.add_argument('--input_labeled', type=GzipFileType('r'),
+                        default=[sys.stdin], nargs='*',
+                        help='Labeled input files (TSV format, optionally compressed)')
+    parser.add_argument('--input_unlabeled', type=GzipFileType('r'),
+                        nargs='*', required=False,
+                        help='Unlabeled input files (TSV format, optionally compressed)')
     parser.add_argument('--limit', type=int, default=None,
                         help='Only process this many lines (for testing)')
     parser.add_argument('--n_jobs', type=int, default=-1,

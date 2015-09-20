@@ -1,9 +1,15 @@
 data:
-    directory: 'data/aclImdb'
-    train_labeled: 'labeledTrainData-*'
-    train_unlabeled: 'unlabeledTrainData-*'
-    test_final: 'testData'
-    extension: tsv
+    directory: 'data/si650winter11'
+    labeled_fields: {'Y': 0, 'X': 1}
+    unlabeled_fields: {'X': 0}
+    train_labeled: 'training'
+    train_unlabeled: ''
+    test_final: 'testdata'
+    extension: txt
+    read_csv_kwargs:
+        header: null
+        delimiter: "\t"
+        encoding: "utf-8"
 
 tokenizer:
     unicode_form: "NFKC"

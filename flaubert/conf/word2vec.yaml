@@ -1,9 +1,18 @@
 data:
     directory: 'data/aclImdb'
+    labeled_fields: {'Y': 'sentiment', 'X': 'review'}
+    unlabeled_fields: {'X': 'review'}
     train_labeled: 'labeledTrainData-*'
     train_unlabeled: 'unlabeledTrainData-*'
     test_final: 'testData'
     extension: tsv
+    read_csv_kwargs:
+        header: 0
+        quoting: 2
+        delimiter: "\t"
+        escapechar: "\\"
+        quotechar: '"'
+        encoding: "utf-8"
 
 tokenizer:
     unicode_form: "NFKC"

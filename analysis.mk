@@ -9,8 +9,8 @@ TESTING_DATA := $(DATA_DIR)/$(shell $(CFG) data test_final)
 TRAINING_LABELED := $(wildcard $(DATA_DIR)/$(shell $(CFG) data train_labeled).$(EXT))
 TRAINING_UNLABELED :=  $(wildcard $(DATA_DIR)/$(shell $(CFG) data train_unlabeled).$(EXT))
 TRAINING_ALL := $(TRAINING_LABELED) $(TRAINING_UNLABELED)
-SENTENCE_LABELED := $(TRAINING_LABELED:.$(EXT)=.sents.gz)
-SENTENCE_UNLABELED := $(TRAINING_UNLABELED:.$(EXT)=.sents.gz)
+SENTENCE_LABELED := $(TRAINING_LABELED:.$(EXT)=.sents_labeled.gz)
+SENTENCE_UNLABELED := $(TRAINING_UNLABELED:.$(EXT)=.sents_unlabeled.gz)
 SENTENCE_ALL := $(SENTENCE_LABELED) $(SENTENCE_UNLABELED)
 
 EMBEDDING := $(DATA_DIR)/300features_40minwords_10context
@@ -64,10 +64,14 @@ $(NLTK_DIR_DONE):
 	$(PYTHON) -m nltk.downloader -d $(NLTK_DIR) wordnet stopwords punkt maxent_treebank_pos_tagger
 	touch $@
 
-%.sents.gz: %.$(EXT) | $(NLTK_DIR_DONE) $(SENT_TOKENIZER)
+%.sents_labeled.gz: %.$(EXT) | $(NLTK_DIR_DONE) $(SENT_TOKENIZER)
 	@echo "Building $@"
-	$(PYTHON) -m flaubert.preprocess --input $*.$(EXT) --output $@ tokenize --sentences
+	$(PYTHON) -m flaubert.preprocess --input_labeled $*.$(EXT) --output $@ tokenize --sentences
+
+%.sents_unlabeled.gz: %.$(EXT) | $(NLTK_DIR_DONE) $(SENT_TOKENIZER)
+	@echo "Building $@"
+	$(PYTHON) -m flaubert.preprocess --input_unlabeled $*.$(EXT) --output $@ tokenize --sentences
 
 $(SENT_TOKENIZER): $(TRAINING_ALL)
 	@echo "Building tokenizer at $@"
-	$(PYTHON) -m flaubert.preprocess --input $^ --output $@ train --verbose
+	$(PYTHON) -m flaubert.preprocess --input_labeled $(TRAINING_LABELED) --input_unlabeled $(TRAINING_UNLABELED) --output $@ train --verbose
