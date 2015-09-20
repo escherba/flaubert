@@ -9,14 +9,13 @@ import cPickle as pickle
 from sklearn.cross_validation import train_test_split
 from pymaptools.vectorize import enumerator
 from pymaptools.io import GzipFileType, read_json_lines
+from flaubert.conf import CONFIG
 
 
-def vectorize_sentences(enum, input_iter):
+def vectorize_sentences(input_iter):
+    enum = enumerator()
     for obj in input_iter:
-        label = obj['Y']
-        sentences = obj['X']
-        doc = [enum[w] for w in chain(*sentences)]
-        yield (doc, label)
+        yield ([enum[w] for w in chain(*obj['X'])], obj['Y'])
 
 
 def parse_args(args=None):
@@ -30,11 +29,11 @@ def parse_args(args=None):
 
 
 def run(args):
-    enum = enumerator()
-    data = list(vectorize_sentences(enum, chain(*(read_json_lines(fn) for fn in args.input))))
+    data = list(vectorize_sentences(chain(*(read_json_lines(fn) for fn in args.input))))
     X, y = zip(*data)
+    cfg = CONFIG['train']
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=0)
+        X, y, test_size=cfg['test_size'], random_state=cfg['random_state'])
     pickle.dump((X_train, y_train), args.output)
     pickle.dump((X_test, y_test), args.output)
 

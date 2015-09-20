@@ -2,8 +2,9 @@ import multiprocessing
 import logging
 import os
 from itertools import islice, chain
-from pymaptools.io import read_json_lines, PathArgumentParser
+from pymaptools.io import PathArgumentParser
 from flaubert.conf import CONFIG
+from flaubert.utils import json_field_iter
 
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
@@ -32,15 +33,9 @@ def sentence_iter(document_iter, cfg):
             yield [(list(chain.from_iterable(document)), labels)]
 
 
-def doc_iter(args):
-    for fname in args.input:
-        for doc in read_json_lines(fname):
-            yield doc['X']
-
-
 def get_sentences(args):
     logging.info("Reading sentences from files: %s", args.input)
-    iterator = doc_iter(args)
+    iterator = json_field_iter(args.input, field='X')
     if args.limit:
         iterator = islice(iterator, args.limit)
     if CONFIG['pretrain']['split_by_sentence']:
@@ -80,7 +75,8 @@ def build_model_word2vec(args, replace_sims=True):
 
     def get_labeled_sentences(args):
         logging.info("Reading sentences+labels from files: %s", args.input)
-        for doc_data in sentence_iter(doc_iter(args), cfg=CONFIG['pretrain']):
+        docs = json_field_iter(args.input, field='X')
+        for doc_data in sentence_iter(docs, cfg=CONFIG['pretrain']):
             for sentence, labels in doc_data:
                 yield doc2vec.LabeledSentence(sentence, labels=labels)
 

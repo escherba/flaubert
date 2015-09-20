@@ -20,7 +20,7 @@ from nltk.corpus import stopwords
 from pymaptools.io import PathArgumentParser, GzipFileType, read_json_lines, open_gz
 from flaubert.pretrain import sentence_iter
 from flaubert.preprocess import get_sliced_iterator
-from flaubert.utils import ItemSelector, pd_dict_iter, BagVectorizer
+from flaubert.utils import ItemSelector, pd_dict_iter, BagVectorizer, drop_nans
 from flaubert.conf import CONFIG
 
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
@@ -207,15 +207,6 @@ def build_grid(args, is_mixed):
     return result
 
 
-def drop_nans(X, y):
-    X_nans = np.isnan(X).any(axis=1)
-    y_nans = np.asarray(np.isnan(y))
-    nans = X_nans | y_nans
-    y = y[~nans]
-    X = X[~nans]
-    return X, y
-
-
 def train_model(args, X_train, X_test, y_train, y_test, is_mixed=False):
     # TODO: use Hyperopt for hyperparameter search
     # Split the dataset
@@ -369,6 +360,8 @@ def get_data_alt(args):
 
 def run(args):
 
+    cfg = CONFIG['train']
+
     if args.plot_features:
         assert not args.vectors
         data = get_data(args)
@@ -382,7 +375,8 @@ def run(args):
             data = get_data(args)
             is_mixed, (X, y) = data
             X_train, X_test, y_train, y_test = train_test_split(
-                X, y, test_size=0.2, random_state=0)
+                X, y, test_size=cfg['test_size'],
+                random_state=cfg['random_state'])
         train_model(args, X_train, X_test, y_train, y_test, is_mixed=is_mixed)
 
 
