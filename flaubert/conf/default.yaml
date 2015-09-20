@@ -67,9 +67,9 @@ train:
 
 glove:
     size: 400
-    learning_rate: 0.01
-    epochs: 80
-    window: 20
+    learning_rate: 0.04
+    epochs: 20
+    window: 40
 
 word2vec:
     sg: 1               # 1 for skip-gram (default), cbow otherwise
