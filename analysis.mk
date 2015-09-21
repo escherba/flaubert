@@ -47,7 +47,7 @@ train: $(SENTENCE_LABELED) $(EMBEDDING)
 		--sentences $(SENTENCE_LABELED)
 
 train_vectors:
-	$(PYTHON) -m flaubert.train --vectors data/imdb-old.pkl
+	$(PYTHON) -m flaubert.train --vectors $(DATA_DIR)/imdb-old.pkl
 
 %.$(EXT): %.$(EXT).zip
 	unzip -p $< > $@
