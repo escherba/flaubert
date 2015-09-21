@@ -45,7 +45,7 @@ tokenizer:
         'atoz', 'john']   # commonly prefixed with Dr. or St.
 
 preprocess:
-    sample_labeled: {0: 30000, 1: 30000}
+    sample_labeled: null  # {0: 30000, 1: 30000}
     sample_unlabeled: null
     random_state: 0
     lemmatizer: "wordnet"   # null or "wordnet"
