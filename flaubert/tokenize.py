@@ -58,17 +58,17 @@ DEFAULT_FEATURE_MAP = u"""
 |
 (?P<DATE>\\b[0-9]+\\s*\\/\\s*[0-9]+\\s*\\/\\s*[0-9]+\\b)
 |
-(?P<EMOTIC_EAST_LO>\\(?[\\+\\^ˇ\\*\\->~][_\\.][\\+\\^ˇ\\*\\-<~]\\)?)
+(?P<EMOTIC_EAST_LO>\\(?[\\+\\^ˇ\\*\\->~](?:_+|\\.)[\\+\\^ˇ\\*\\-<~]\\)?)
 |
 (?P<EMOTIC_EAST_HI>\\(?[\\^ˇ\\*][\\-~oO][\\^ˇ\\*]\\)?)
 |
-(?P<EMOTIC_WEST_LEFT>\\>?(?:=|(?:[:;]|(?<![\\w\\(\\)])[Bb])[\\-=\\^']?)([\\(\\)\\*\\[\\]\\|]+|[cCoOpPdD]\\b))
+(?P<EMOTIC_WEST_LEFT>\\>?(?:=|(?:[:;]|(?<![\\w\\(\\)])[Bb])[\\-=\\^']?)([\\(\\)\\*\\[\\]\\|]+|[cCoOpPdDsSlL0]\\b))
 |
 (?P<EMOTIC_WEST_RIGHT>(?<!\\w)([\\(\\)\\[\\]\\|]+)(?:(?:[\\-=\\^'][:;]?|[\\-=\\^']?[:;])(?![\\w\\(\\)])|=))
 |
 (?P<EMOTIC_WEST_LEFT_HAPPY>(?<![0-9])[:;]3+\\b)
 |
-(?P<EMOTIC_WEST_LEFT_SAD>(?<![^\\p{P}\\s]):@(?![^\\s\\p{P}]))
+(?P<EMOTIC_WEST_LEFT_SAD>(?<![^\\p{P}\\s])[:=][@\\\/](?![^\\s\\p{P}]))
 |
 (?P<EMOTIC_RUSS_HAPPY>\\){2,})
 |
@@ -112,9 +112,11 @@ DEFAULT_FEATURE_MAP = u"""
 |
 (?P<ELLIPSIS>(?:\\.\\s*){2,}|\\u2026)                    # ellipsis
 |
+(?P<XOXO>\\b(?:[xX][oO])+\\b)
+|
 (?::+(?!\\/\\/)|[!?¡¿]+|[,\\.])                          # punctuation
 |
-(\\w+)                                                # any non-zero sequence of letters
+(\\w+)                                                   # any non-zero sequence of letters
 """ % dict(
     number=u'|'.join(NUM2DEC.keys())
 )
@@ -188,6 +190,7 @@ class RegexpFeatureTokenizer(object):
     def _group_tag(self, match, *args):
         yield self._group_name(match)
 
+    handle_xoxo = _group_tag
     handle_asciiarrow_left = _group_tag
     handle_asciiarrow_right = _group_tag
     handle_timeofday = _group_tag
@@ -315,7 +318,7 @@ class RegexpFeatureTokenizer(object):
         if extracted == u"\u2026":
             yield u"..."
         else:
-            yield STRIP_NONWORD(extracted)
+            yield STRIP_SPACES(extracted)
 
     def __call__(self, text):
         return self.tokenize(text)
