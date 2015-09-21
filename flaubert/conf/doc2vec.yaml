@@ -5,7 +5,7 @@ data:
     train_labeled: 'labeledTrainData-*'
     train_unlabeled: 'unlabeledTrainData-*'
     test_final: 'testData'
-    extension: tsv
+    extension: tsv.gz
     read_csv_kwargs:
         header: 0
         quoting: 2
