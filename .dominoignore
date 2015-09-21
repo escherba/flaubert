@@ -28,3 +28,6 @@ cover/
 
 .git/
 __pycache__/
+
+
+*.bak

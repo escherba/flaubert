@@ -8,7 +8,6 @@ import os
 import cPickle as pickle
 from pkg_resources import resource_filename
 from bs4 import BeautifulSoup
-from itertools import islice
 from functools import partial
 from nltk.corpus import stopwords
 from nltk.stem import wordnet, PorterStemmer
@@ -19,7 +18,8 @@ from flaubert.tokenize import RegexpFeatureTokenizer
 from flaubert.urls import URLParser
 from flaubert.conf import CONFIG
 from flaubert.HTMLParser import HTMLParser, HTMLParseError
-from flaubert.utils import treebank2wordnet, lru_wrap, pd_dict_iter
+from flaubert.utils import treebank2wordnet, lru_wrap, pd_dict_iter, \
+    reservoir_list, reservoir_dict
 from flaubert.unicode_maps import EXTRA_TRANSLATE_MAP
 from flaubert.punkt import PunktTrainer, PunktLanguageVars, PunktSentenceTokenizer
 
@@ -212,9 +212,10 @@ class HTMLCleaner(object):
     _remove_partial_comment = partial(
         (re.compile(ur"<!--", re.UNICODE)).sub, u"")
 
-    def __init__(self, strip_html=True, strip_html_comments=True):
+    def __init__(self, strip_html=True, unescape_html=True, strip_html_comments=True):
         self._strip_html = strip_html
         self._strip_html_comments = strip_html_comments
+        self._unescape_html = unescape_html
 
     def clean(self, html):
         """Remove HTML markup from the given string
@@ -225,6 +226,8 @@ class HTMLCleaner(object):
         if html and self._strip_html:
             stripper = MLStripper()
             try:
+                if self._unescape_html:
+                    html = stripper.unescape(html)
                 stripper.feed(html)
             except HTMLParseError as err:
                 logging.exception(err)
@@ -258,7 +261,7 @@ class SimpleSentenceTokenizer(object):
                  sentence_tokenizer=('nltk_data', 'tokenizers/punkt/english.pickle'),
                  max_char_repeats=3, lru_cache_size=50000, translate_map_inv=None,
                  replace_map=None, html_renderer='default', add_abbrev_types=None,
-                 del_sent_starters=None):
+                 unescape_html=True, del_sent_starters=None):
         self._unicode_normalize = partial(unicodedata.normalize, unicode_form)
         self._replace_inplace = InPlaceReplacer(replace_map).replace \
             if replace_map else lambda x: x
@@ -285,7 +288,7 @@ class SimpleSentenceTokenizer(object):
         if html_renderer is None:
             self.strip_html = lambda x: x
         elif html_renderer == u'default':
-            self.strip_html = HTMLCleaner().clean
+            self.strip_html = HTMLCleaner(unescape_html=unescape_html).clean
         elif html_renderer == u'beautifulsoup':
             self.strip_html = strip_html_bs
         else:
@@ -477,34 +480,35 @@ def get_words(field, row, **kwargs):
     return row
 
 
-def get_sliced_iterator(iter_factory, input_labeled, input_unlabeled=None,
-                        limit=None):
+def get_sliced_iterator(iter_factory, input_labeled, input_unlabeled=None):
     cfg = CONFIG['data']['labeled_fields']
     x_field, y_field = cfg['X'], cfg['Y']
     iterator_labeled = iter_factory(input_labeled)
-    num_remaining = limit
-    if num_remaining:
-        iterator_labeled = islice(iterator_labeled, num_remaining)
-    num_labeled = 0
+
+    cfg = CONFIG['preprocess']
+    sample_labeled = cfg.get('sample_labeled')
+    sample_unlabeled = cfg.get('sample_unlabeled')
+    random_state = cfg.get('random_state')
+
+    if sample_labeled:
+        iterator_labeled = reservoir_dict(
+            iterator_labeled, y_field, sample_labeled, random_state=random_state)
     for row in iterator_labeled:
         yield {'Y': row[y_field], 'X': row[x_field]}
-        num_labeled += 1
     if input_unlabeled:
         cfg = CONFIG['data']['unlabeled_fields']
         x_field = cfg['X']
         iterator_unlabeled = iter_factory(input_unlabeled)
-        if num_remaining:
-            num_remaining = num_remaining - num_labeled
-            iterator_unlabeled = islice(iterator_unlabeled, num_remaining)
+        if sample_unlabeled:
+            iterator_unlabeled = reservoir_list(
+                iterator_unlabeled, sample_unlabeled, random_state=random_state)
         for row in iterator_unlabeled:
             yield {'X': row[x_field]}
 
 
 def run_tokenize(args):
     iterator = get_sliced_iterator(
-        pd_dict_iter, args.input_labeled, args.input_unlabeled,
-        args.limit
-    )
+        pd_dict_iter, args.input_labeled, args.input_unlabeled)
     mapper = get_sentences if args.sentences else get_words
     write_record = partial(write_json_line, args.output)
     if args.n_jobs == 1:
@@ -520,9 +524,9 @@ def run_tokenize(args):
 
 
 def train_sentence_tokenizer(args):
-    iterator = (obj['X'] for obj in
-                get_sliced_iterator(pd_dict_iter, args.input_labeled,
-                                    args.input_unlabeled, args.limit))
+    iterator = (
+        obj['X'] for obj in get_sliced_iterator(
+            pd_dict_iter, args.input_labeled, args.input_unlabeled))
     TOKENIZER.train(iterator, verbose=args.verbose)
     TOKENIZER.save_sentence_model(args.output)
 
@@ -535,8 +539,6 @@ def parse_args(args=None):
     parser.add_argument('--input_unlabeled', type=GzipFileType('r'),
                         default=(), required=False, nargs='*',
                         help='Unlabeled input files (TSV format, optionally compressed)')
-    parser.add_argument('--limit', type=int, default=None,
-                        help='Only process this many lines (for testing)')
     parser.add_argument('--n_jobs', type=int, default=-1,
                         help="Number of jobs to run")
     parser.add_argument('--output', type=GzipFileType('w'), default=sys.stdout,

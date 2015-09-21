@@ -1,16 +1,14 @@
 data:
-    directory: 'data/aclImdb'
-    labeled_fields: {'Y': 'sentiment', 'X': 'review'}
-    unlabeled_fields: {'X': 'review'}
-    train_labeled: 'labeledTrainData-*'
-    train_unlabeled: 'unlabeledTrainData-*'
-    test_final: 'testData'
-    extension: tsv
+    directory: 'data/twitter'
+    labeled_fields: {'Y': 'Sentiment', 'X': 'SentimentText'}
+    unlabeled_fields: {}
+    train_labeled: 'twitter'
+    train_unlabeled: ''
+    test_final: ''
+    extension: csv.gz
     read_csv_kwargs:
         header: 0
-        quoting: 2
-        delimiter: "\t"
-        escapechar: "\\"
+        delimiter: ","
         quotechar: '"'
         encoding: "utf-8"
 
@@ -21,6 +19,7 @@ tokenizer:
     sentence_tokenizer: ['data/aclImdb', 'sentence_tokenizer.pickle']
     max_char_repeats: 3
     lru_cache_size: 50000   # cache size (for wordnet lemmatizer only at the moment)
+    unescape_html: true
     html_renderer: "default"  # Either null or "default" or "beautifulsoup"
     translate_map_inv: {
         # normalize hashtags and mentions
@@ -46,6 +45,9 @@ tokenizer:
         'atoz', 'john']   # commonly prefixed with Dr. or St.
 
 preprocess:
+    sample_labeled: {0: 30000, 1: 30000}
+    sample_unlabeled: null
+    random_state: 0
     lemmatizer: "wordnet"   # null or "wordnet"
     stemmer: null           # null or "porter"
 
@@ -56,6 +58,7 @@ pretrain:
     embedding: "word2vec"    # for word2vec algo, either word2vec or doc2vec
 
 train:
+    sample_labeled: {0: 30000, 1: 30000}
     test_size: 0.2
     random_state: 0
     split_by_sentence: false

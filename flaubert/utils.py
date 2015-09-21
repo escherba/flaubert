@@ -1,5 +1,8 @@
 import pandas
+import random
 import numpy as np
+from itertools import chain
+from collections import defaultdict, Counter
 from nltk.stem import wordnet
 from scipy.sparse import dok_matrix
 from fastcache import clru_cache
@@ -57,6 +60,53 @@ def pd_row_iter(datasets, chunksize=1000, field=None):
 def pd_dict_iter(datasets, chunksize=1000):
     for idx, row in pd_row_iter(datasets, chunksize=chunksize):
         yield dict(row)
+
+
+def reservoir_list(iterator, K, random_state=0):
+    """Simple reservoir sampler
+    """
+    random.seed(random_state)
+    sample = []
+    for idx, item in enumerate(iterator):
+        if len(sample) < K:
+            sample.append(item)
+        else:
+            # accept with probability K / idx
+            sample_idx = int(random.random() * idx)
+            if sample_idx < K:
+                sample[sample_idx] = item
+    return sample
+
+
+def reservoir_dict(iterator, field, Kdict, random_state=0):
+    """Reservoir sampling over a list of dicts
+
+    Given a field, and a mapping of field values to integers K,
+    return a sample from the iterator such that for the field specified,
+    each value occurs at most K times.  For example, for a binary ouput
+    value Y, we would request
+
+        field='Y', Kdict={0: 500, 1: 1000}
+
+    to return 500 instances of Y=0 and 1000 instances of Y=1
+    """
+    random.seed(random_state)
+    sample = defaultdict(list)
+    field_indices = Counter()
+    for row in iterator:
+        field_val = row[field]
+        if field_val in Kdict:
+            idx = field_indices[field_val]
+            field_list = sample[field_val]
+            if len(field_list) < Kdict[field_val]:
+                field_list.append(row)
+            else:
+                # accept with probability K / idx
+                sample_idx = int(random.random() * idx)
+                if sample_idx < Kdict[field_val]:
+                    field_list[sample_idx] = row
+            field_indices[field_val] += 1
+    return list(chain.from_iterable(sample.itervalues()))
 
 
 def lru_wrap(func, cache_size=None):

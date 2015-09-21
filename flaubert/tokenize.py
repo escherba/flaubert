@@ -50,6 +50,10 @@ DEFAULT_FEATURE_MAP = u"""
 |
 (?P<CENSORED>\\b\\p{L}+(?:\\*+\\p{L}+)+\\b)
 |
+(?P<EMPHASIS_B>\\*+(\\p{L}+)\\*+)
+|
+(?P<EMPHASIS_U>(?<![$#@])\\b_+(\\p{L}+)_+\\b)
+|
 (?P<TIMEOFDAY>\\b[0-2]?[0-9]:[0-6][0-9](?:\\s*[AaPp][Mm])?\\b)
 |
 (?P<DATE>\\b[0-9]+\\s*\\/\\s*[0-9]+\\s*\\/\\s*[0-9]+\\b)
@@ -63,6 +67,8 @@ DEFAULT_FEATURE_MAP = u"""
 (?P<EMOTIC_WEST_RIGHT>(?<!\\w)([\\(\\)\\[\\]\\|]+)(?:(?:[\\-=\\^'][:;]?|[\\-=\\^']?[:;])(?![\\w\\(\\)])|=))
 |
 (?P<EMOTIC_WEST_LEFT_HAPPY>(?<![0-9])[:;]3+\\b)
+|
+(?P<EMOTIC_WEST_LEFT_SAD>(?<![^\\p{P}\\s]):@(?![^\\s\\p{P}]))
 |
 (?P<EMOTIC_RUSS_HAPPY>\\){2,})
 |
@@ -87,6 +93,8 @@ DEFAULT_FEATURE_MAP = u"""
 (?P<THREED>\\b3\\-?d\\b)
 |
 (?P<CURRENCY>(?<=\\s)\\p{Sc}+(?=(?:\\s|[0-9])))
+|
+(?P<MENTION>@[a-zA-Z0-9_]+)
 |
 (?P<DECADE>\\b((?:18|19|20)?[0-9]0)(?:\\s*'\\s*)?s\\b)
 |
@@ -126,13 +134,13 @@ class RegexpFeatureTokenizer(object):
     match with the matched name (hierarchically if the name is multi-part)
     and also return the content of the match.
 
-    Hashtag and user mention regexes were writen by Space who based them on
-    https://github.com/twitter/twitter-text/blob/master/js/twitter-text.js
-    For hashtags, mentions, and cashtags, we generate a plain word token as
-    well as one with the appropriate character prefixed.
-    Note that hashtag are supposed to be prefixed by space or by string boundary,
-    however this doesn't capture user intent (users may concatenate hashtags
-    together).
+    Hashtag and user mention regexes are simplified versions of
+    https://github.com/twitter/twitter-text/blob/master/js/pkg/twitter-text-1.9.4.js#L217
+    https://github.com/twitter/twitter-text/blob/master/js/pkg/twitter-text-1.9.4.js#L224
+    For hashtags, we generate a plain word token as well as one with the
+    appropriate character prefixed.  Note that hashtag are supposed to be
+    prefixed by space or by string boundary, however this doesn't capture
+    user intent (users may concatenate hashtags together).
 
     More detailed description of some features:
 
@@ -184,6 +192,7 @@ class RegexpFeatureTokenizer(object):
     handle_asciiarrow_right = _group_tag
     handle_timeofday = _group_tag
     handle_date = _group_tag
+    handle_mention = _group_tag
 
     def handle_special(self, match, *args):
         tag_name = match.group(match.lastindex + 1).upper()
@@ -270,6 +279,12 @@ class RegexpFeatureTokenizer(object):
     def wrapped_entity_handler(self, match, *args):
         yield self.groupname_format % STRIP_NONWORD(match.group()).upper()
 
+    def _emphasis_like(self, match, *args):
+        yield self._group_name(match)
+        yield match.group(match.lastindex + 1)
+
+    handle_emphasis_b = _emphasis_like
+    handle_emphasis_u = _emphasis_like
     handle_mpaarating = wrapped_entity_handler
     handle_threed = wrapped_entity_handler
 

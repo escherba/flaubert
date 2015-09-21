@@ -4,6 +4,7 @@ NLTK_DIR_DONE := $(NLTK_DIR)/make.done
 CFG := python -m flaubert.conf --key
 EXT := $(shell $(CFG) data extension)
 DATA_DIR := $(shell $(CFG) data directory)
+EMBEDDING_TYPE := $(shell $(CFG) pretrain algorithm)
 
 TESTING_DATA := $(DATA_DIR)/$(shell $(CFG) data test_final)
 TRAINING_LABELED := $(wildcard $(DATA_DIR)/$(shell $(CFG) data train_labeled).$(EXT))
@@ -13,9 +14,9 @@ SENTENCE_LABELED := $(TRAINING_LABELED:.$(EXT)=.sents_labeled.gz)
 SENTENCE_UNLABELED := $(TRAINING_UNLABELED:.$(EXT)=.sents_unlabeled.gz)
 SENTENCE_ALL := $(SENTENCE_LABELED) $(SENTENCE_UNLABELED)
 
-EMBEDDING := $(DATA_DIR)/300features_40minwords_10context
+EMBEDDING := $(DATA_DIR)/embedding-$(EMBEDDING_TYPE)
+CORP_MODEL := $(DATA_DIR)/corpus_model-$(EMBEDDING_TYPE)
 SENT_TOKENIZER := $(DATA_DIR)/sentence_tokenizer.pickle
-CORP_MODEL := $(DATA_DIR)/glove-corpus.model
 ROC_OUTPUT := $(DATA_DIR)/roc.png
 
 export NLTK_DATA=$(NLTK_DIR)
@@ -39,16 +40,15 @@ preprocess: $(SENTENCE_ALL) | env
 pretrain: $(EMBEDDING)
 	@echo "done"
 
-train: $(TRAINING_LABELED) $(SENTENCE_LABELED) $(EMBEDDING)
+train: $(SENTENCE_LABELED) $(EMBEDDING)
 	@echo "Training classifier"
 	$(PYTHON) -m flaubert.train \
 		--plot_roc $(ROC_OUTPUT) \
 		--embedding $(EMBEDDING) \
-		--train $(TRAINING_LABELED) \
 		--sentences $(SENTENCE_LABELED)
 
 train_vectors:
-	$(PYTHON) -m flaubert.train --vectors data/imdb-old.pkl
+	$(PYTHON) -m flaubert.train --vectors $(DATA_DIR)/imdb-old.pkl
 
 %.$(EXT): %.$(EXT).zip
 	unzip -p $< > $@

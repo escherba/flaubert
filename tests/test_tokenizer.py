@@ -68,13 +68,13 @@ class TestFeatureTokens(unittest.TestCase, SetComparisonMixin):
     def test_western_emoticons_sad(self):
         """With custom features removed, this text should be idempotent on tokenization
         """
-        text = u":-( :( =( =(( :=( >:( :[ :'( :^( ): ]: ))= )= )=: :-c :C :O"
+        text = u":-( :( =( =(( :=( >:( :[ :'( :^( ): ]: ))= )= )=: :-c :C :O :@"
         tokens = self.tokenize(text)
         reconstructed = u' '.join(token for token in tokens if not token.startswith(u"<EMOTIC"))
         self.assertEqual(text.lower(), reconstructed)
 
         group_names = [m.lastgroup for m in zip(*self.base_tokenizer.tokenize(text))[1]]
-        self.assertEqual(34, count_prefix(u"EMOTIC", group_names))
+        self.assertEqual(35, count_prefix(u"EMOTIC", group_names))
 
     def test_hearts(self):
         """With custom features removed, this text should be idempotent on tokenization
@@ -284,3 +284,25 @@ class TestFeatureTokens(unittest.TestCase, SetComparisonMixin):
         tokens = self.tokenize(text)
         self.assertSetContainsSubset(
             [u'nice', u'1950s', u'60s', u'americana'], tokens)
+
+    def test_mention(self):
+        text = u"@RayFranco is answering to @AnPel, this is a real '@username83' " \
+               u"but this is an@email.com, and this is a @probablyfaketwitterusername"
+        token_counts = Counter(self.tokenize(text))
+        self.assertEqual(4, token_counts['<MENTION>'])
+        self.assertEqual(1, token_counts['<EMAIL>'])
+
+    def test_emphasis_star(self):
+        text = u"@hypnotic I know  *cries*"
+        tokens = self.tokenize(text)
+        self.assertSetContainsSubset([u'<EMPHASIS_B>', u'cry'], tokens)
+
+    def test_emphasis_underscore(self):
+        text = u"I _hate_ sunblock"
+        tokens = self.tokenize(text)
+        self.assertSetContainsSubset([u'<EMPHASIS_U>', u'hate'], tokens)
+
+    def test_unescape(self):
+        text = u"@artmeanslove I &lt;3 that book"
+        tokens = self.tokenize(text)
+        self.assertSetContainsSubset([u'<3', u'<EMOTIC_HEART_HAPPY>'], tokens)
