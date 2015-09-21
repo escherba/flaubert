@@ -19,8 +19,7 @@ from sklearn.linear_model import LogisticRegression
 from nltk.corpus import stopwords
 from pymaptools.io import PathArgumentParser, GzipFileType, read_json_lines, open_gz
 from flaubert.pretrain import sentence_iter
-from flaubert.preprocess import get_sliced_iterator
-from flaubert.utils import ItemSelector, pd_dict_iter, BagVectorizer, drop_nans
+from flaubert.utils import ItemSelector, BagVectorizer, drop_nans, reservoir_dict
 from flaubert.conf import CONFIG
 
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
@@ -289,8 +288,6 @@ def parse_args(args=None):
     parser = PathArgumentParser()
     parser.add_argument('--embedding', type=str, metavar='FILE', default=None,
                         help='Input word2vec (or doc2vec) model')
-    parser.add_argument('--train', type=str, metavar='FILE', nargs='*', default=[],
-                        help='(Labeled) training set')
     parser.add_argument('--plot_features', type=str, default=None,
                         help='file to save feature comparison to')
     parser.add_argument('--plot_roc', type=str, default=None,
@@ -303,6 +300,16 @@ def parse_args(args=None):
     return namespace
 
 
+def sample_by_y(args):
+    sample = chain.from_iterable(read_json_lines(x) for x in args.sentences)
+    cfg = CONFIG['train']
+    if cfg.get('sample_ys'):
+        sample = reservoir_dict(sample, "Y", cfg['sample_ys'], random_state=cfg['random_state'])
+    sentences, yvals = zip(*[(obj['X'], obj['Y']) for obj in sample])
+    y_labels = np.array(yvals, dtype=float)
+    return sentences, y_labels
+
+
 def get_data(args):
 
     feature_set_names = CONFIG['train']['features']
@@ -310,8 +317,7 @@ def get_data(args):
         raise RuntimeError("--embedding argument must be supplied")
 
     # get input data
-    y_labels = np.array([row['Y'] for row in get_sliced_iterator(pd_dict_iter, args.train)], dtype=float)
-    sentences = [obj['X'] for obj in chain.from_iterable(read_json_lines(x) for x in args.sentences)]
+    sentences, y_labels = sample_by_y(args)
 
     if not args.embedding or feature_set_names == ['bow']:
         # don't drop NaNs -- have a sparse matrix here

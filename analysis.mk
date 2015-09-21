@@ -39,12 +39,11 @@ preprocess: $(SENTENCE_ALL) | env
 pretrain: $(EMBEDDING)
 	@echo "done"
 
-train: $(TRAINING_LABELED) $(SENTENCE_LABELED) $(EMBEDDING)
+train: $(SENTENCE_LABELED) $(EMBEDDING)
 	@echo "Training classifier"
 	$(PYTHON) -m flaubert.train \
 		--plot_roc $(ROC_OUTPUT) \
 		--embedding $(EMBEDDING) \
-		--train $(TRAINING_LABELED) \
 		--sentences $(SENTENCE_LABELED)
 
 train_vectors:
