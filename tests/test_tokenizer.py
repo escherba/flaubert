@@ -291,3 +291,8 @@ class TestFeatureTokens(unittest.TestCase, SetComparisonMixin):
         token_counts = Counter(self.tokenize(text))
         self.assertEqual(4, token_counts['<MENTION>'])
         self.assertEqual(1, token_counts['<EMAIL>'])
+
+    def test_emphasis(self):
+        text = "@hypnotic I know  *cries*"
+        tokens = self.tokenize(text)
+        self.assertSetContainsSubset([u'<EMPHASIS>', u'cry'], tokens)
