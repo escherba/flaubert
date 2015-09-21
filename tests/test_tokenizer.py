@@ -68,13 +68,13 @@ class TestFeatureTokens(unittest.TestCase, SetComparisonMixin):
     def test_western_emoticons_sad(self):
         """With custom features removed, this text should be idempotent on tokenization
         """
-        text = u":-( :( =( =(( :=( >:( :[ :'( :^( ): ]: ))= )= )=: :-c :C :O"
+        text = u":-( :( =( =(( :=( >:( :[ :'( :^( ): ]: ))= )= )=: :-c :C :O :@"
         tokens = self.tokenize(text)
         reconstructed = u' '.join(token for token in tokens if not token.startswith(u"<EMOTIC"))
         self.assertEqual(text.lower(), reconstructed)
 
         group_names = [m.lastgroup for m in zip(*self.base_tokenizer.tokenize(text))[1]]
-        self.assertEqual(34, count_prefix(u"EMOTIC", group_names))
+        self.assertEqual(35, count_prefix(u"EMOTIC", group_names))
 
     def test_hearts(self):
         """With custom features removed, this text should be idempotent on tokenization

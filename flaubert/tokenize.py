@@ -64,6 +64,8 @@ DEFAULT_FEATURE_MAP = u"""
 |
 (?P<EMOTIC_WEST_LEFT_HAPPY>(?<![0-9])[:;]3+\\b)
 |
+(?P<EMOTIC_WEST_LEFT_SAD>(?<![^\\p{P}\\s]):@(?![^\\s\\p{P}]))
+|
 (?P<EMOTIC_RUSS_HAPPY>\\){2,})
 |
 (?P<EMOTIC_RUSS_SAD>\\({2,})
@@ -128,13 +130,13 @@ class RegexpFeatureTokenizer(object):
     match with the matched name (hierarchically if the name is multi-part)
     and also return the content of the match.
 
-    Hashtag and user mention regexes were writen by Space who based them on
-    https://github.com/twitter/twitter-text/blob/master/js/twitter-text.js
-    For hashtags, mentions, and cashtags, we generate a plain word token as
-    well as one with the appropriate character prefixed.
-    Note that hashtag are supposed to be prefixed by space or by string boundary,
-    however this doesn't capture user intent (users may concatenate hashtags
-    together).
+    Hashtag and user mention regexes are simplified versions of
+    https://github.com/twitter/twitter-text/blob/master/js/pkg/twitter-text-1.9.4.js#L217
+    https://github.com/twitter/twitter-text/blob/master/js/pkg/twitter-text-1.9.4.js#L224
+    For hashtags, we generate a plain word token as well as one with the
+    appropriate character prefixed.  Note that hashtag are supposed to be
+    prefixed by space or by string boundary, however this doesn't capture
+    user intent (users may concatenate hashtags together).
 
     More detailed description of some features:
 
