@@ -68,7 +68,7 @@ DEFAULT_FEATURE_MAP = u"""
 |
 (?P<EMOTIC_WEST_LEFT_HAPPY>(?<![0-9])[:;]3+\\b)
 |
-(?P<EMOTIC_WEST_LEFT_SAD>(?<![^\\p{P}\\s]):@(?![^\\s\\p{P}]))
+(?P<EMOTIC_WEST_LEFT_SAD>(?<![^\\p{P}\\s])[:=][@\\\/](?![^\\s\\p{P}]))
 |
 (?P<EMOTIC_RUSS_HAPPY>\\){2,})
 |
@@ -114,7 +114,7 @@ DEFAULT_FEATURE_MAP = u"""
 |
 (?::+(?!\\/\\/)|[!?¡¿]+|[,\\.])                          # punctuation
 |
-(\\w+)                                                # any non-zero sequence of letters
+(\\w+)                                                   # any non-zero sequence of letters
 """ % dict(
     number=u'|'.join(NUM2DEC.keys())
 )
@@ -315,7 +315,7 @@ class RegexpFeatureTokenizer(object):
         if extracted == u"\u2026":
             yield u"..."
         else:
-            yield STRIP_NONWORD(extracted)
+            yield STRIP_SPACES(extracted)
 
     def __call__(self, text):
         return self.tokenize(text)
