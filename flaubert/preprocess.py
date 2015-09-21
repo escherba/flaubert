@@ -212,9 +212,10 @@ class HTMLCleaner(object):
     _remove_partial_comment = partial(
         (re.compile(ur"<!--", re.UNICODE)).sub, u"")
 
-    def __init__(self, strip_html=True, strip_html_comments=True):
+    def __init__(self, strip_html=True, unescape_html=True, strip_html_comments=True):
         self._strip_html = strip_html
         self._strip_html_comments = strip_html_comments
+        self._unescape_html = unescape_html
 
     def clean(self, html):
         """Remove HTML markup from the given string
@@ -225,6 +226,8 @@ class HTMLCleaner(object):
         if html and self._strip_html:
             stripper = MLStripper()
             try:
+                if self._unescape_html:
+                    html = stripper.unescape(html)
                 stripper.feed(html)
             except HTMLParseError as err:
                 logging.exception(err)
@@ -258,7 +261,7 @@ class SimpleSentenceTokenizer(object):
                  sentence_tokenizer=('nltk_data', 'tokenizers/punkt/english.pickle'),
                  max_char_repeats=3, lru_cache_size=50000, translate_map_inv=None,
                  replace_map=None, html_renderer='default', add_abbrev_types=None,
-                 del_sent_starters=None):
+                 unescape_html=True, del_sent_starters=None):
         self._unicode_normalize = partial(unicodedata.normalize, unicode_form)
         self._replace_inplace = InPlaceReplacer(replace_map).replace \
             if replace_map else lambda x: x
@@ -285,7 +288,7 @@ class SimpleSentenceTokenizer(object):
         if html_renderer is None:
             self.strip_html = lambda x: x
         elif html_renderer == u'default':
-            self.strip_html = HTMLCleaner().clean
+            self.strip_html = HTMLCleaner(unescape_html=unescape_html).clean
         elif html_renderer == u'beautifulsoup':
             self.strip_html = strip_html_bs
         else:

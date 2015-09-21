@@ -19,6 +19,7 @@ tokenizer:
     sentence_tokenizer: ['data/aclImdb', 'sentence_tokenizer.pickle']
     max_char_repeats: 3
     lru_cache_size: 50000   # cache size (for wordnet lemmatizer only at the moment)
+    unescape_html: true
     html_renderer: "default"  # Either null or "default" or "beautifulsoup"
     translate_map_inv: {
         # normalize hashtags and mentions

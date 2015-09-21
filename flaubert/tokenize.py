@@ -50,7 +50,9 @@ DEFAULT_FEATURE_MAP = u"""
 |
 (?P<CENSORED>\\b\\p{L}+(?:\\*+\\p{L}+)+\\b)
 |
-(?P<EMPHASIS>\\*+(\\p{L}+)\\*+)
+(?P<EMPHASIS_B>\\*+(\\p{L}+)\\*+)
+|
+(?P<EMPHASIS_U>(?<![$#@])\\b_+(\\p{L}+)_+\\b)
 |
 (?P<TIMEOFDAY>\\b[0-2]?[0-9]:[0-6][0-9](?:\\s*[AaPp][Mm])?\\b)
 |
@@ -277,10 +279,12 @@ class RegexpFeatureTokenizer(object):
     def wrapped_entity_handler(self, match, *args):
         yield self.groupname_format % STRIP_NONWORD(match.group()).upper()
 
-    def handle_emphasis(self, match, *args):
+    def _emphasis_like(self, match, *args):
         yield self._group_name(match)
-        yield STRIP_NONWORD(match.group())
+        yield match.group(match.lastindex + 1)
 
+    handle_emphasis_b = _emphasis_like
+    handle_emphasis_u = _emphasis_like
     handle_mpaarating = wrapped_entity_handler
     handle_threed = wrapped_entity_handler
 

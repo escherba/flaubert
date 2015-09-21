@@ -292,7 +292,17 @@ class TestFeatureTokens(unittest.TestCase, SetComparisonMixin):
         self.assertEqual(4, token_counts['<MENTION>'])
         self.assertEqual(1, token_counts['<EMAIL>'])
 
-    def test_emphasis(self):
-        text = "@hypnotic I know  *cries*"
+    def test_emphasis_star(self):
+        text = u"@hypnotic I know  *cries*"
         tokens = self.tokenize(text)
-        self.assertSetContainsSubset([u'<EMPHASIS>', u'cry'], tokens)
+        self.assertSetContainsSubset([u'<EMPHASIS_B>', u'cry'], tokens)
+
+    def test_emphasis_underscore(self):
+        text = u"I _hate_ sunblock"
+        tokens = self.tokenize(text)
+        self.assertSetContainsSubset([u'<EMPHASIS_U>', u'hate'], tokens)
+
+    def test_unescape(self):
+        text = u"@artmeanslove I &lt;3 that book"
+        tokens = self.tokenize(text)
+        self.assertSetContainsSubset([u'<3', u'<EMOTIC_HEART_HAPPY>'], tokens)
