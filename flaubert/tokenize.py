@@ -62,13 +62,19 @@ DEFAULT_FEATURE_MAP = u"""
 |
 (?P<EMOTIC_EAST_HI>\\(?[\\^ˇ\\*][\\-~oO][\\^ˇ\\*]\\)?)
 |
-(?P<EMOTIC_WEST_LEFT>\\>?(?:=|(?:[:;]|(?<![\\w\\(\\)])[Bb])[\\-=\\^']?)([\\(\\)\\*\\[\\]\\|]+|[cCoOpPdDsSlL0]\\b))
+(?P<EMOTIC_EAST_SAD>\\b[tTqQ][_\\.][tTqQ]\\b|;[_\\.];)
 |
-(?P<EMOTIC_WEST_RIGHT>(?<!\\w)([\\(\\)\\[\\]\\|]+)(?:(?:[\\-=\\^'][:;]?|[\\-=\\^']?[:;])(?![\\w\\(\\)])|=))
+(?P<EMOTIC_WEST_L>\\>?(?:=|(?:[:;]|(?<![\\w\\(\\)])[Bb])[\\-=\\^']?)([\\(\\)\\*\\[\\]\\|]+|[cCoOpPdDsSlL0xX]\\b))
 |
-(?P<EMOTIC_WEST_LEFT_HAPPY>(?<![0-9])[:;]3+\\b)
+(?P<EMOTIC_WEST_R>(?<!\\w)([dD]|[\\(\\)\\[\\]\\|]+)(?:(?:[\\-=\\^'][:;]?|[\\-=\\^']?[:;])(?![\\w\\(\\)])|=))
 |
-(?P<EMOTIC_WEST_LEFT_SAD>(?<![^\\p{P}\\s])[:=][@\\\/](?![^\\s\\p{P}]))
+(?P<EMOTIC_WEST_L_HAPPY>(?<![0-9])[:;]3+\\b)
+|
+(?P<EMOTIC_WEST_CHEER>\\\[om]/)
+|
+(?P<EMOTIC_WEST_L_MISC>(?<![^\\p{P}\\s])[:=]([$@\\\/])(?![^\\s\\p{P}]))
+|
+(?P<EMOTIC_WEST_R_MISC>(?<![^\\p{P}\\s])([$@\\\/])[:=](?![^\\s\\p{P}]))
 |
 (?P<EMOTIC_RUSS_HAPPY>\\){2,})
 |
@@ -98,9 +104,9 @@ DEFAULT_FEATURE_MAP = u"""
 |
 (?P<DECADE>\\b((?:18|19|20)?[0-9]0)(?:\\s*'\\s*)?s\\b)
 |
-(?P<ASCIIARROW_RIGHT>([\\-=]?\\>{2,}|[\\-=]+\\>))        # -->, ==>, >>, >>>
+(?P<ASCIIARROW_R>([\\-=]?\\>{2,}|[\\-=]+\\>))        # -->, ==>, >>, >>>
 |
-(?P<ASCIIARROW_LEFT>(\\<{2,}[\\-=]?|\\<[\\-=]+))         # <<<, <<, <==, <--
+(?P<ASCIIARROW_L>(\\<{2,}[\\-=]?|\\<[\\-=]+))         # <<<, <<, <==, <--
 |
 (?P<MNDASH>\\s\\-\\s|\\-{2,3}|\\u2013|\\u2014)
 |
@@ -191,8 +197,8 @@ class RegexpFeatureTokenizer(object):
         yield self._group_name(match)
 
     handle_xoxo = _group_tag
-    handle_asciiarrow_left = _group_tag
-    handle_asciiarrow_right = _group_tag
+    handle_asciiarrow_l = _group_tag
+    handle_asciiarrow_r = _group_tag
     handle_timeofday = _group_tag
     handle_date = _group_tag
     handle_mention = _group_tag
@@ -218,25 +224,37 @@ class RegexpFeatureTokenizer(object):
             yield first
             yield second
 
-    def handle_emotic_west_left(self, match, *args):
+    def handle_emotic_west_l(self, match, *args):
         mouth = match.group(match.lastindex + 1)[0]
-        group_name = match.lastgroup
+        group_name = match.lastgroup[:-2]   # drop '_L' suffix
         if mouth in u")]pdPD":
             group_name = u'_'.join([group_name, 'HAPPY'])
-        elif mouth in u"([cC":
+        elif mouth in u"([cCsSlL":
             group_name = u'_'.join([group_name, 'SAD'])
         yield match.group()
         yield self.groupname_format % group_name
 
-    def handle_emotic_west_right(self, match, *args):
+    def handle_emotic_west_r(self, match, *args):
         mouth = match.group(match.lastindex + 1)[-1]
-        group_name = match.lastgroup
+        group_name = match.lastgroup[:-2]   # drop '_R' suffix
         if mouth in u"([":
             group_name = u'_'.join([group_name, 'HAPPY'])
-        elif mouth in u")]":
+        elif mouth in u")]dD":
             group_name = u'_'.join([group_name, 'SAD'])
         yield match.group()
         yield self.groupname_format % group_name
+
+    def handle_emotic_west_l_misc(self, match, *args):
+        mouth = match.group(match.lastindex + 1)[0]
+        group_name = match.lastgroup[:-7]  # drop '_L_MISC' suffix
+        if mouth in u"$":
+            group_name = u'_'.join([group_name, 'HAPPY'])
+        elif mouth in u"@\\/":
+            group_name = u'_'.join([group_name, 'SAD'])
+        yield match.group()
+        yield self.groupname_format % group_name
+
+    handle_emotic_west_r_misc = handle_emotic_west_l_misc
 
     def handle_emotic_heart(self, match, *args):
         group_name = match.lastgroup
@@ -285,6 +303,12 @@ class RegexpFeatureTokenizer(object):
     def _emphasis_like(self, match, *args):
         yield self._group_name(match)
         yield match.group(match.lastindex + 1)
+
+    def _simple_named_handler(self, match, *args):
+        yield self._group_name(match)
+        yield match.group()
+
+    handle_emotic_east_sad = _simple_named_handler
 
     handle_emphasis_b = _emphasis_like
     handle_emphasis_u = _emphasis_like
