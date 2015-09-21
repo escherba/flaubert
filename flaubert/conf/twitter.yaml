@@ -54,7 +54,7 @@ pretrain:
     embedding: "word2vec"    # for word2vec algo, either word2vec or doc2vec
 
 train:
-    sample_ys: {0: 10000, 1: 10000}
+    sample_labeled: {0: 10000, 1: 10000}
     test_size: 0.2
     random_state: 0
     split_by_sentence: false

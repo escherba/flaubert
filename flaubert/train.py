@@ -255,7 +255,7 @@ def plot_roc(output_file, fpr, tpr, roc_auc):
     plt.plot(fpr, tpr, label='AUC = %.3f' % roc_auc)
     plt.plot([0, 1], [0, 1], 'k--')
     plt.xlim([0.0, 1.0])
-    plt.ylim([0.0, 1.05])
+    plt.ylim([0.0, 1.0])
     plt.legend(loc='lower right')
     plt.savefig(output_file)
 
@@ -303,8 +303,10 @@ def parse_args(args=None):
 def sample_by_y(args):
     sample = chain.from_iterable(read_json_lines(x) for x in args.sentences)
     cfg = CONFIG['train']
-    if cfg.get('sample_ys'):
-        sample = reservoir_dict(sample, "Y", cfg['sample_ys'], random_state=cfg['random_state'])
+    label_counts = cfg.get('sample_labeled')
+    if label_counts:
+        sample = reservoir_dict(sample, "Y", label_counts,
+                                random_state=cfg['random_state'])
     sentences, yvals = zip(*[(obj['X'], obj['Y']) for obj in sample])
     y_labels = np.array(yvals, dtype=float)
     return sentences, y_labels

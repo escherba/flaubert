@@ -8,7 +8,6 @@ import os
 import cPickle as pickle
 from pkg_resources import resource_filename
 from bs4 import BeautifulSoup
-from itertools import islice
 from functools import partial
 from nltk.corpus import stopwords
 from nltk.stem import wordnet, PorterStemmer
@@ -19,7 +18,8 @@ from flaubert.tokenize import RegexpFeatureTokenizer
 from flaubert.urls import URLParser
 from flaubert.conf import CONFIG
 from flaubert.HTMLParser import HTMLParser, HTMLParseError
-from flaubert.utils import treebank2wordnet, lru_wrap, pd_dict_iter
+from flaubert.utils import treebank2wordnet, lru_wrap, pd_dict_iter, \
+    reservoir_list, reservoir_dict
 from flaubert.unicode_maps import EXTRA_TRANSLATE_MAP
 from flaubert.punkt import PunktTrainer, PunktLanguageVars, PunktSentenceTokenizer
 
@@ -480,34 +480,35 @@ def get_words(field, row, **kwargs):
     return row
 
 
-def get_sliced_iterator(iter_factory, input_labeled, input_unlabeled=None,
-                        limit=None):
+def get_sliced_iterator(iter_factory, input_labeled, input_unlabeled=None):
     cfg = CONFIG['data']['labeled_fields']
     x_field, y_field = cfg['X'], cfg['Y']
     iterator_labeled = iter_factory(input_labeled)
-    num_remaining = limit
-    if num_remaining:
-        iterator_labeled = islice(iterator_labeled, num_remaining)
-    num_labeled = 0
+
+    cfg = CONFIG['preprocess']
+    sample_labeled = cfg.get('sample_labeled')
+    sample_unlabeled = cfg.get('sample_unlabeled')
+    random_state = cfg.get('random_state')
+
+    if sample_labeled:
+        iterator_labeled = reservoir_dict(
+            iterator_labeled, y_field, sample_labeled, random_state=random_state)
     for row in iterator_labeled:
         yield {'Y': row[y_field], 'X': row[x_field]}
-        num_labeled += 1
     if input_unlabeled:
         cfg = CONFIG['data']['unlabeled_fields']
         x_field = cfg['X']
         iterator_unlabeled = iter_factory(input_unlabeled)
-        if num_remaining:
-            num_remaining = num_remaining - num_labeled
-            iterator_unlabeled = islice(iterator_unlabeled, num_remaining)
+        if sample_unlabeled:
+            iterator_unlabeled = reservoir_list(
+                iterator_unlabeled, sample_unlabeled, random_state=random_state)
         for row in iterator_unlabeled:
             yield {'X': row[x_field]}
 
 
 def run_tokenize(args):
     iterator = get_sliced_iterator(
-        pd_dict_iter, args.input_labeled, args.input_unlabeled,
-        args.limit
-    )
+        pd_dict_iter, args.input_labeled, args.input_unlabeled)
     mapper = get_sentences if args.sentences else get_words
     write_record = partial(write_json_line, args.output)
     if args.n_jobs == 1:
@@ -523,9 +524,9 @@ def run_tokenize(args):
 
 
 def train_sentence_tokenizer(args):
-    iterator = (obj['X'] for obj in
-                get_sliced_iterator(pd_dict_iter, args.input_labeled,
-                                    args.input_unlabeled, args.limit))
+    iterator = (
+        obj['X'] for obj in get_sliced_iterator(
+            pd_dict_iter, args.input_labeled, args.input_unlabeled))
     TOKENIZER.train(iterator, verbose=args.verbose)
     TOKENIZER.save_sentence_model(args.output)
 
@@ -538,8 +539,6 @@ def parse_args(args=None):
     parser.add_argument('--input_unlabeled', type=GzipFileType('r'),
                         default=(), required=False, nargs='*',
                         help='Unlabeled input files (TSV format, optionally compressed)')
-    parser.add_argument('--limit', type=int, default=None,
-                        help='Only process this many lines (for testing)')
     parser.add_argument('--n_jobs', type=int, default=-1,
                         help="Number of jobs to run")
     parser.add_argument('--output', type=GzipFileType('w'), default=sys.stdout,
