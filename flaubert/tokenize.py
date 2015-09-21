@@ -112,6 +112,8 @@ DEFAULT_FEATURE_MAP = u"""
 |
 (?P<ELLIPSIS>(?:\\.\\s*){2,}|\\u2026)                    # ellipsis
 |
+(?P<XOXO>\\b(?:[xX][oO])+\\b)
+|
 (?::+(?!\\/\\/)|[!?¡¿]+|[,\\.])                          # punctuation
 |
 (\\w+)                                                   # any non-zero sequence of letters
@@ -188,6 +190,7 @@ class RegexpFeatureTokenizer(object):
     def _group_tag(self, match, *args):
         yield self._group_name(match)
 
+    handle_xoxo = _group_tag
     handle_asciiarrow_left = _group_tag
     handle_asciiarrow_right = _group_tag
     handle_timeofday = _group_tag
