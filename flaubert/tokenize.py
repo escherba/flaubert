@@ -88,6 +88,8 @@ DEFAULT_FEATURE_MAP = u"""
 |
 (?P<CURRENCY>(?<=\\s)\\p{Sc}+(?=(?:\\s|[0-9])))
 |
+(?P<MENTION>@[a-zA-Z0-9_]+)
+|
 (?P<DECADE>\\b((?:18|19|20)?[0-9]0)(?:\\s*'\\s*)?s\\b)
 |
 (?P<ASCIIARROW_RIGHT>([\\-=]?\\>{2,}|[\\-=]+\\>))        # -->, ==>, >>, >>>
@@ -184,6 +186,7 @@ class RegexpFeatureTokenizer(object):
     handle_asciiarrow_right = _group_tag
     handle_timeofday = _group_tag
     handle_date = _group_tag
+    handle_mention = _group_tag
 
     def handle_special(self, match, *args):
         tag_name = match.group(match.lastindex + 1).upper()

@@ -284,3 +284,10 @@ class TestFeatureTokens(unittest.TestCase, SetComparisonMixin):
         tokens = self.tokenize(text)
         self.assertSetContainsSubset(
             [u'nice', u'1950s', u'60s', u'americana'], tokens)
+
+    def test_mention(self):
+        text = u"@RayFranco is answering to @AnPel, this is a real '@username83' " \
+               u"but this is an@email.com, and this is a @probablyfaketwitterusername"
+        token_counts = Counter(self.tokenize(text))
+        self.assertEqual(4, token_counts['<MENTION>'])
+        self.assertEqual(1, token_counts['<EMAIL>'])
