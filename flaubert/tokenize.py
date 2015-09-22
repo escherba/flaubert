@@ -56,7 +56,7 @@ DEFAULT_FEATURE_MAP = [
 
     ('EMPHASIS_U', u"""(?<![$#@])\\b_+(\\p{L}+)_+\\b"""),
 
-    ('TIMEOFDAY', u"""\\b[0-2]?[0-9](?::[0-6][0-9](?:\\s*[AaPp][Mm])?|(?:\\s*[AaPp][Mm]))\\b"""),
+    ('TIMEOFDAY', u"""(?<![\\w\\p{Sc}#])[0-2]?[0-9](?:[:\\.][0-6][0-9](?:\\s*[AaPp][Mm])?|(?:\\s*[AaPp][Mm]))(?![\\w\\p{Sc}#])"""),
 
     ('DATE', u"""\\b[0-9]+\\s*\\/\\s*[0-9]+\\s*\\/\\s*[0-9]+\\b"""),
 
@@ -64,17 +64,15 @@ DEFAULT_FEATURE_MAP = [
 
     ('EMOTIC_EAST_HI', u"""\\(?[\\^ˇ\\*][\\-~oO][\\^ˇ\\*]\\)?"""),
 
-    ('EMOTIC_EAST_SAD', u"""\\b[tTqQ][_\\.][tTqQ]\\b|;[_\\.];"""),
+    ('EMOTIC_EAST_SAD', u"""\\b[tTqQvV][_\\.][tTqQvV]\\b|;[_\\.];"""),
 
     ('EMOTIC_WEST_L', u"""\\>?(?:=|(?:[:;]|(?<![\\w\\(\\)])[Bb])[\\-=\\^']?)([\\(\\)\\*\\[\\]\\|]+|[cCoOpPdDsSlL0xX]\\b)"""),
 
     ('EMOTIC_WEST_R', u"""(?<!\\w)([dD]|[\\(\\)\\[\\]\\|]+)(?:(?:[\\-=\\^'][:;]?|[\\-=\\^']?[:;])(?![\\w\\(\\)])|=)"""),
 
-    ('EMOTIC_WEST_L_HAPPY', u"""(?<![0-9])[:;]3+\\b"""),
-
     ('EMOTIC_WEST_CHEER', u"""\\\[om]/"""),
 
-    ('EMOTIC_WEST_L_MISC', u"""(?<![^\\p{P}\\s])[:=]([$@\\\/])(?![^\\s\\p{P}])"""),
+    ('EMOTIC_WEST_L_MISC', u"""(?<![^\\p{P}\\s])[;:=]([3$@\\\/]+)(?![^\\s\\p{P}])"""),
 
     ('EMOTIC_WEST_R_MISC', u"""(?<![^\\p{P}\\s])([$@\\\/])[:=](?![^\\s\\p{P}])"""),
 
@@ -122,7 +120,7 @@ DEFAULT_FEATURE_MAP = [
 
     ('ELLIPSIS', u"""(?:\\.\\s*){2,}|\\u2026"""),          # ellipsis
 
-    ('XOXO', u"""\\b[xX][oO](?:\\s*[xX][oO])*\\b"""),      # kisses / hugs
+    ('XOXO', u"""\\b[xX][oO](?:\\s*[xX]+[oO]?)*\\b"""),    # kisses / hugs
 
     ('XX', u"""\\b[xX](?:\\s*[xX])+\\b"""),                # kisses
 
@@ -183,7 +181,7 @@ class RegexpFeatureTokenizer(object):
         # attributes equal to parameter names
         feature_pattern = u'\n|\n'.join(
             u"(?P<%s>%s)" % (feature, FEATURE_PATTERNS[feature])
-            for feature in features
+            for feature in features if feature in DEFAULT_FEATURES
         )
         self.regex = re.compile(feature_pattern, flags)
         self.groupname_format = groupname_format
@@ -260,11 +258,11 @@ class RegexpFeatureTokenizer(object):
         yield self.groupname_format % group_name
 
     def handle_emotic_west_l_misc(self, match, *args):
-        mouth = match.group(match.lastindex + 1)[0]
+        upper_lip = match.group(match.lastindex + 1)[0]
         group_name = match.lastgroup[:-7]  # drop '_L_MISC' suffix
-        if mouth in u"$":
+        if upper_lip in u"$3":
             group_name = u'_'.join([group_name, 'HAPPY'])
-        elif mouth in u"@\\/":
+        elif upper_lip in u"@\\/":
             group_name = u'_'.join([group_name, 'SAD'])
         yield match.group()
         yield self.groupname_format % group_name
@@ -360,7 +358,7 @@ class RegexpFeatureTokenizer(object):
                 return
         elif suffix and suffix[-1] == u's':
             num_len = len(num)
-            if (not thousands) and (not floating) and ((num_len == 4 and num[-1] == u'0' and num[0] in [u'1', '2']) or (num_len == 2 and num[-1] == u'0')):
+            if (not thousands) and (not floating) and ((num_len == 4 and num[-1] == u'0' and num[0] in u'12') or (num_len == 2 and num[-1] == u'0')):
                 yield num + u's'
                 yield self.groupname_format % u'DECADE'
                 return

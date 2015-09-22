@@ -9,7 +9,7 @@ from pymaptools.utils import SetComparisonMixin
 FEATURES = [
     'CUSTOMTOKEN', 'REPLY', 'CENSORED', 'EMPHASIS_B', 'EMPHASIS_U', 'TIMEOFDAY',
     'DATE', 'EMOTIC_EAST_LO', 'EMOTIC_EAST_HI', 'EMOTIC_EAST_SAD', 'EMOTIC_WEST_L',
-    'EMOTIC_WEST_R', 'EMOTIC_WEST_L_HAPPY', 'EMOTIC_WEST_CHEER', 'EMOTIC_WEST_L_MISC',
+    'EMOTIC_WEST_R', 'EMOTIC_WEST_CHEER', 'EMOTIC_WEST_L_MISC',
     'EMOTIC_WEST_R_MISC', 'EMOTIC_RUSS_HAPPY', 'EMOTIC_RUSS_SAD', 'EMOTIC_HEART',
     'CONTRACTION', 'MPAARATING', 'GRADE_POST', 'GRADE_PRE', 'THREED', 'NUMBER',
     'HASHTAG', 'MENTION', 'ASCIIARROW_R', 'ASCIIARROW_L', 'MNDASH', 'ABBREV1',
@@ -225,7 +225,23 @@ class TestTwitterTokens(unittest.TestCase, SetComparisonMixin):
         token_counts = Counter(self.tokenize(text))
         self.assertEqual(2, token_counts[u'<XX>'])
 
-    def test_kisses_hugs(self):
+    def test_kisses_hugs_1(self):
         text = u"all right, xo xo vou mimi now xoxo"
         token_counts = Counter(self.tokenize(text))
         self.assertEqual(2, token_counts[u'<XOXO>'])
+
+    def test_kisses_hugs_2(self):
+        text = u"Night world xoxx, kisses xox"
+        token_counts = Counter(self.tokenize(text))
+        self.assertEqual(2, token_counts[u'<XOXO>'])
+
+    def test_timeofday(self):
+        text = u"its okay its only 10.00 for us perth kiddos"
+        token_counts = Counter(self.tokenize(text))
+        self.assertEqual(1, token_counts[u'<TIMEOFDAY>'])
+
+    def test_timeofday_neg(self):
+        text = u"but i couldnt find my visa. Shipping Sweden $22.22"
+        token_counts = Counter(self.tokenize(text))
+        self.assertEqual(0, token_counts[u'<TIMEOFDAY>'])
+        self.assertEqual(1, token_counts[u'$'])
