@@ -2,20 +2,31 @@ import unittest
 from tests import count_prefix
 from functools import partial
 from collections import Counter
-from flaubert.preprocess import TOKENIZER
+from flaubert.preprocess import tokenizer_builder
 from flaubert.tokenize import RegexpFeatureTokenizer
 from pymaptools.utils import SetComparisonMixin
 
+FEATURES = [
+    'CUSTOMTOKEN', 'CENSORED', 'EMPHASIS_B', 'EMPHASIS_U', 'TIMEOFDAY',
+    'DATE', 'EMOTIC_EAST_LO', 'EMOTIC_EAST_HI', 'EMOTIC_EAST_SAD', 'EMOTIC_WEST_L',
+    'EMOTIC_WEST_R', 'EMOTIC_WEST_L_HAPPY', 'EMOTIC_WEST_CHEER', 'EMOTIC_WEST_L_MISC',
+    'EMOTIC_WEST_R_MISC', 'EMOTIC_RUSS_HAPPY', 'EMOTIC_RUSS_SAD', 'EMOTIC_HEART',
+    'CONTRACTION', 'STARRATING', 'STARRATING_FULL', 'STARRATING_X', 'MPAARATING',
+    'GRADE_POST', 'GRADE_PRE', 'THREED', 'DECADE',
+    'ASCIIARROW_R', 'ASCIIARROW_L', 'MNDASH', 'ABBREV1', 'ABBREV2', 'ABBREV3',
+    'ELLIPSIS', 'XOXO', 'PUNKT', 'ANYWORD']
 
-class TestFeatureTokens(unittest.TestCase, SetComparisonMixin):
+
+class TestImdbTokens(unittest.TestCase, SetComparisonMixin):
 
     maxDiff = 2000
 
     def setUp(self):
+        TOKENIZER = tokenizer_builder(features=FEATURES)
         self.tokenizer = TOKENIZER
         self.tokenize = partial(TOKENIZER.tokenize, remove_stopwords=False)
         self.sentence_tokenize = TOKENIZER.sentence_tokenize
-        self.base_tokenizer = RegexpFeatureTokenizer(debug=True)
+        self.base_tokenizer = RegexpFeatureTokenizer(features=FEATURES, debug=True)
 
     def test_preprocess(self):
         text = u"wow \u2014 such \u2013 doge"
@@ -291,13 +302,6 @@ class TestFeatureTokens(unittest.TestCase, SetComparisonMixin):
         tokens = self.tokenize(text)
         self.assertSetContainsSubset(
             [u'nice', u'1950s', u'60s', u'americana'], tokens)
-
-    def test_mention(self):
-        text = u"@RayFranco is answering to @AnPel, this is a real '@username83' " \
-               u"but this is an@email.com, and this is a @probablyfaketwitterusername"
-        token_counts = Counter(self.tokenize(text))
-        self.assertEqual(4, token_counts['<MENTION>'])
-        self.assertEqual(1, token_counts['<EMAIL>'])
 
     def test_emphasis_star(self):
         text = u"@hypnotic I know  *cries*"

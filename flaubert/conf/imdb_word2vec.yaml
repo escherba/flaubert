@@ -1,18 +1,28 @@
 data:
-    directory: 'data/twitter'
-    labeled_fields: {'Y': 'Sentiment', 'X': 'SentimentText'}
-    unlabeled_fields: {}
-    train_labeled: 'twitter'
-    train_unlabeled: ''
-    test_final: ''
-    extension: csv.gz
+    directory: 'data/aclImdb'
+    labeled_fields: {'Y': 'sentiment', 'X': 'review'}
+    unlabeled_fields: {'X': 'review'}
+    train_labeled: 'labeledTrainData-*'
+    train_unlabeled: 'unlabeledTrainData-*'
+    test_final: 'testData'
+    extension: tsv.gz
     read_csv_kwargs:
         header: 0
-        delimiter: ","
+        quoting: 2
+        delimiter: "\t"
+        escapechar: "\\"
         quotechar: '"'
         encoding: "utf-8"
 
 tokenizer:
+    features: ['CUSTOMTOKEN', 'CENSORED', 'EMPHASIS_B', 'EMPHASIS_U', 'TIMEOFDAY',
+    'DATE', 'EMOTIC_EAST_LO', 'EMOTIC_EAST_HI', 'EMOTIC_EAST_SAD', 'EMOTIC_WEST_L',
+    'EMOTIC_WEST_R', 'EMOTIC_WEST_L_HAPPY', 'EMOTIC_WEST_CHEER', 'EMOTIC_WEST_L_MISC',
+    'EMOTIC_WEST_R_MISC', 'EMOTIC_RUSS_HAPPY', 'EMOTIC_RUSS_SAD', 'EMOTIC_HEART',
+    'CONTRACTION', 'STARRATING', 'STARRATING_FULL', 'STARRATING_X', 'MPAARATING',
+    'GRADE_POST', 'GRADE_PRE', 'THREED', 'DECADE',
+    'ASCIIARROW_R', 'ASCIIARROW_L', 'MNDASH', 'ABBREV1', 'ABBREV2', 'ABBREV3',
+    'ELLIPSIS', 'XOXO', 'PUNKT', 'ANYWORD']
     unicode_form: "NFKC"
     nltk_stop_words: "english"
     #sentence_tokenizer: ['nltk_data', 'tokenizers/punkt/english.pickle']
@@ -54,7 +64,6 @@ pretrain:
     embedding: "word2vec"    # for word2vec algo, either word2vec or doc2vec
 
 train:
-    sample_labeled: {0: 10000, 1: 10000}
     test_size: 0.2
     random_state: 0
     split_by_sentence: false

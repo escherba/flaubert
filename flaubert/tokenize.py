@@ -45,87 +45,92 @@ def count_stars(num_stars):
     return float(dec_num_stars)
 
 
-DEFAULT_FEATURE_MAP = u"""
-(?P<SPECIAL>\\b__([A-Za-z]+)__\\b)
-|
-(?P<CENSORED>\\b\\p{L}+(?:\\*+\\p{L}+)+\\b)
-|
-(?P<EMPHASIS_B>\\*+(\\p{L}+)\\*+)
-|
-(?P<EMPHASIS_U>(?<![$#@])\\b_+(\\p{L}+)_+\\b)
-|
-(?P<TIMEOFDAY>\\b[0-2]?[0-9]:[0-6][0-9](?:\\s*[AaPp][Mm])?\\b)
-|
-(?P<DATE>\\b[0-9]+\\s*\\/\\s*[0-9]+\\s*\\/\\s*[0-9]+\\b)
-|
-(?P<EMOTIC_EAST_LO>\\(?[\\+\\^ˇ\\*\\->~](?:_+|\\.)[\\+\\^ˇ\\*\\-<~]\\)?)
-|
-(?P<EMOTIC_EAST_HI>\\(?[\\^ˇ\\*][\\-~oO][\\^ˇ\\*]\\)?)
-|
-(?P<EMOTIC_EAST_SAD>\\b[tTqQ][_\\.][tTqQ]\\b|;[_\\.];)
-|
-(?P<EMOTIC_WEST_L>\\>?(?:=|(?:[:;]|(?<![\\w\\(\\)])[Bb])[\\-=\\^']?)([\\(\\)\\*\\[\\]\\|]+|[cCoOpPdDsSlL0xX]\\b))
-|
-(?P<EMOTIC_WEST_R>(?<!\\w)([dD]|[\\(\\)\\[\\]\\|]+)(?:(?:[\\-=\\^'][:;]?|[\\-=\\^']?[:;])(?![\\w\\(\\)])|=))
-|
-(?P<EMOTIC_WEST_L_HAPPY>(?<![0-9])[:;]3+\\b)
-|
-(?P<EMOTIC_WEST_CHEER>\\\[om]/)
-|
-(?P<EMOTIC_WEST_L_MISC>(?<![^\\p{P}\\s])[:=]([$@\\\/])(?![^\\s\\p{P}]))
-|
-(?P<EMOTIC_WEST_R_MISC>(?<![^\\p{P}\\s])([$@\\\/])[:=](?![^\\s\\p{P}]))
-|
-(?P<EMOTIC_RUSS_HAPPY>\\){2,})
-|
-(?P<EMOTIC_RUSS_SAD>\\({2,})
-|
-(?P<EMOTIC_HEART>(?<![0-9])\\<(\\/?)3+\\b)
-|
-(?P<CONTRACTION>\\b([a-zA-Z]+)'([a-zA-Z]{1,2})\\b)     # you're, it's, it'd, he'll
-|
-(?P<STARRATING>((?:(?:\\s\\-)?[0-9]{1,2})|(?:\\*\\s?)+|%(number)s)(\\.[0-9]+|[\\s-]*[1-9]\\s?\\/\\s?[1-9])?\\s*(?:stars?(?:\\s+rating)?)?\\s*(?:\\/\\s*|\\(?(?:out\\s+)?of\\s+)((?:4|5|100?|four|five|ten)\\b|(?:\\*\\s?)+)(?:\\s+stars)?)
-|
-(?P<STARRATING_FULL>\\bfull\\s10\\b)
-|
-(?P<STARRATING_X>\\b(?:a|my)\\s+(\\-?[0-9](?:\\.[0-9])?)[\\s-]+(?:star\\s+)?(?:rating|for)\\b)
-|
-(?P<MPAARATING>pg[-\\s]?13|nc[-\\s]?17)
-|
-(?P<GRADE_POST>\\bgrade\\s*[:-]?\\s*([a-f](?:\\+|\\b)))
-|
-(?P<GRADE_PRE>\\b([a-f]\\+?)\\s*-?\\s*grade\\b)
-|
-(?P<THREED>\\b3\\-?d\\b)
-|
-(?P<CURRENCY>(?<=\\s)\\p{Sc}+(?=(?:\\s|[0-9])))
-|
-(?P<MENTION>@[a-zA-Z0-9_]+)
-|
-(?P<DECADE>\\b((?:18|19|20)?[0-9]0)(?:\\s*'\\s*)?s\\b)
-|
-(?P<ASCIIARROW_R>([\\-=]?\\>{2,}|[\\-=]+\\>))        # -->, ==>, >>, >>>
-|
-(?P<ASCIIARROW_L>(\\<{2,}[\\-=]?|\\<[\\-=]+))         # <<<, <<, <==, <--
-|
-(?P<MNDASH>\\s\\-\\s|\\-{2,3}|\\u2013|\\u2014)
-|
-(?P<ABBREV1>\\b\\p{L}([&\\/\\-\\+])\\p{L}\\b)            # entities like S&P, w/o
-|
-(?P<ABBREV2>\\b(\\p{L})-(\\p{L}{2,})\\b)                 # X-Factor, X-men, T-trak
-|
-(?P<ABBREV3>\\b(?:\\p{L}\\.){2,})                        # abbreviation with periods like U.S.
-|
-(?P<ELLIPSIS>(?:\\.\\s*){2,}|\\u2026)                    # ellipsis
-|
-(?P<XOXO>\\b(?:[xX][oO])+\\b)
-|
-(?::+(?!\\/\\/)|[!?¡¿]+|[,\\.])                          # punctuation
-|
-(\\w+)                                                   # any non-zero sequence of letters
-""" % dict(
-    number=u'|'.join(NUM2DEC.keys())
-)
+DEFAULT_FEATURE_MAP = [
+    ('CUSTOMTOKEN', u"""\\b__([A-Za-z]+)__\\b"""),
+
+    ('REPLY', u"""^\\s*\\.?\\s*(?=@)"""),
+
+    ('CENSORED', u"""\\b\\p{L}+(?:\\*+\\p{L}+)+\\b"""),
+
+    ('EMPHASIS_B', u"""\\*+(\\p{L}+)\\*+"""),
+
+    ('EMPHASIS_U', u"""(?<![$#@])\\b_+(\\p{L}+)_+\\b"""),
+
+    ('TIMEOFDAY', u"""\\b[0-2]?[0-9]:[0-6][0-9](?:\\s*[AaPp][Mm])?\\b"""),
+
+    ('DATE', u"""\\b[0-9]+\\s*\\/\\s*[0-9]+\\s*\\/\\s*[0-9]+\\b"""),
+
+    ('EMOTIC_EAST_LO', u"""\\(?[\\+\\^ˇ\\*\\->~](?:_+|\\.)[\\+\\^ˇ\\*\\-<~]\\)?"""),
+
+    ('EMOTIC_EAST_HI', u"""\\(?[\\^ˇ\\*][\\-~oO][\\^ˇ\\*]\\)?"""),
+
+    ('EMOTIC_EAST_SAD', u"""\\b[tTqQ][_\\.][tTqQ]\\b|;[_\\.];"""),
+
+    ('EMOTIC_WEST_L', u"""\\>?(?:=|(?:[:;]|(?<![\\w\\(\\)])[Bb])[\\-=\\^']?)([\\(\\)\\*\\[\\]\\|]+|[cCoOpPdDsSlL0xX]\\b)"""),
+
+    ('EMOTIC_WEST_R', u"""(?<!\\w)([dD]|[\\(\\)\\[\\]\\|]+)(?:(?:[\\-=\\^'][:;]?|[\\-=\\^']?[:;])(?![\\w\\(\\)])|=)"""),
+
+    ('EMOTIC_WEST_L_HAPPY', u"""(?<![0-9])[:;]3+\\b"""),
+
+    ('EMOTIC_WEST_CHEER', u"""\\\[om]/"""),
+
+    ('EMOTIC_WEST_L_MISC', u"""(?<![^\\p{P}\\s])[:=]([$@\\\/])(?![^\\s\\p{P}])"""),
+
+    ('EMOTIC_WEST_R_MISC', u"""(?<![^\\p{P}\\s])([$@\\\/])[:=](?![^\\s\\p{P}])"""),
+
+    ('EMOTIC_RUSS_HAPPY', u"""\\){2,}"""),
+
+    ('EMOTIC_RUSS_SAD', u"""\\({2,}"""),
+
+    ('EMOTIC_HEART', u"""(?<![0-9])\\<(\\/?)3+\\b"""),
+
+    ('CONTRACTION', u"""\\b([a-zA-Z]+)'([a-zA-Z]{1,2})\\b"""),  # you're, it's, it'd, he'll,
+
+    ('STARRATING', u"""((?:(?:\\s\\-)?[0-9]{1,2})|(?:\\*\\s?)+|%(number)s)(\\.[0-9]+|[\\s-]*[1-9]\\s?\\/\\s?[1-9])?\\s*(?:stars?(?:\\s+rating)?)?\\s*(?:\\/\\s*|\\(?(?:out\\s+)?of\\s+)((?:4|5|100?|four|five|ten)\\b|(?:\\*\\s?)+)(?:\\s+stars)?""" % dict(number=u'|'.join(NUM2DEC.keys()))),
+
+    ('STARRATING_FULL', u"""\\bfull\\s10\\b"""),
+
+    ('STARRATING_X', u"""\\b(?:a|my)\\s+(\\-?[0-9](?:\\.[0-9])?)[\\s-]+(?:star\\s+)?(?:rating|for)\\b"""),
+
+    ('MPAARATING', u"""pg[-\\s]?13|nc[-\\s]?17"""),
+
+    ('GRADE_POST', u"""\\bgrade\\s*[:-]?\\s*([a-f](?:\\+|\\b))"""),
+
+    ('GRADE_PRE', u"""\\b([a-f]\\+?)\\s*-?\\s*grade\\b"""),
+
+    ('THREED', u"""\\b3\\-?d\\b"""),
+
+    ('DECADE', u"""\\b((?:18|19|20)?[0-9]0)(?:\\s*'\\s*)?s\\b"""),
+
+    ('NUMBER', u"""(?<!\\w)([#\\p{Sc}+])?\\s?([0-9]+)([\\s,][0-9]{3})*(\\.[0-9]+)?\\s?(\\p{Sc}+|'?\\s?s)?(?!\\w)"""),
+
+    ('HASHTAG', u"""\\#[a-zA-Z_][a-zA-Z0-9_]*"""),
+
+    ('MENTION', u"""@[a-zA-Z0-9_]+"""),
+
+    ('ASCIIARROW_R', u"""([\\-=]?\\>{2,}|[\\-=]+\\>)"""),  # -->, ==>, >>, >>>,
+
+    ('ASCIIARROW_L', u"""(\\<{2,}[\\-=]?|\\<[\\-=]+)"""),  # <<<, <<, <==, <--
+
+    ('MNDASH', u"""\\s\\-\\s|\\-{2,3}|\\u2013|\\u2014"""),
+
+    ('ABBREV1', u"""\\b\\p{L}([&\\/\\-\\+])\\p{L}\\b"""),  # entities like S&P, w/o
+
+    ('ABBREV2', u"""\\b(\\p{L})-(\\p{L}{2,})\\b"""),       # X-Factor, X-men, T-trak
+
+    ('ABBREV3', u"""\\b(?:\\p{L}\\.){2,}"""),              # abbreviation with periods like U.S.
+
+    ('ELLIPSIS', u"""(?:\\.\\s*){2,}|\\u2026"""),          # ellipsis
+
+    ('XOXO', u"""\\b(?:[xX][oO])+\\b"""),
+
+    ('PUNKT', u"""::+(?!\\/\\/)|[!?¡¿]+|[,\\.]"""),        # punctuation
+
+    ('ANYWORD', u"""\\w+""")                               # any non-zero sequence of letters
+]
+
+DEFAULT_FEATURES = zip(*DEFAULT_FEATURE_MAP)[0]
+FEATURE_PATTERNS = dict(DEFAULT_FEATURE_MAP)
 
 
 class RegexpFeatureTokenizer(object):
@@ -167,14 +172,18 @@ class RegexpFeatureTokenizer(object):
     dispatch_prefix = 'handle_'
 
     def __init__(self,
-                 pattern=DEFAULT_FEATURE_MAP,
+                 features=DEFAULT_FEATURES,
                  groupname_format=u"<%s>",
                  word_buffer_len=5,
                  flags=re.UNICODE | re.DOTALL | re.VERBOSE,
                  debug=False):
 
         # attributes equal to parameter names
-        self.regex = re.compile(pattern, flags)
+        feature_pattern = u'\n|\n'.join(
+            u"(?P<%s>%s)" % (feature, FEATURE_PATTERNS[feature])
+            for feature in features
+        )
+        self.regex = re.compile(feature_pattern, flags)
         self.groupname_format = groupname_format
         self.word_buffer_len = word_buffer_len
 
@@ -196,6 +205,12 @@ class RegexpFeatureTokenizer(object):
     def _group_tag(self, match, *args):
         yield self._group_name(match)
 
+    def handle_reply(self, match, *args):
+        period = STRIP_SPACES(match.group() or '')
+        if period:
+            yield self.groupname_format % u'PUBLIC'
+        yield self._group_name(match)
+
     handle_xoxo = _group_tag
     handle_asciiarrow_l = _group_tag
     handle_asciiarrow_r = _group_tag
@@ -203,7 +218,7 @@ class RegexpFeatureTokenizer(object):
     handle_date = _group_tag
     handle_mention = _group_tag
 
-    def handle_special(self, match, *args):
+    def handle_customtoken(self, match, *args):
         tag_name = match.group(match.lastindex + 1).upper()
         yield self.groupname_format % tag_name
 
@@ -308,6 +323,11 @@ class RegexpFeatureTokenizer(object):
         yield self._group_name(match)
         yield match.group()
 
+    def handle_hashtag(self, match, *args):
+        yield self._group_name(match)
+        yield match.group()
+        yield match.group()[1:]
+
     handle_emotic_east_sad = _simple_named_handler
 
     handle_emphasis_b = _emphasis_like
@@ -318,8 +338,32 @@ class RegexpFeatureTokenizer(object):
     def handle_decade(self, match, *args):
         yield STRIP_NONWORD(match.group()).lower()
 
-    def handle_currency(self, match, *args):
-        yield match.group()[0]
+    def handle_number(self, match, *args):
+        prefix = STRIP_SPACES(match.group(match.lastindex + 1) or '')
+        num = STRIP_NONWORD(match.group(match.lastindex + 2) or '')
+        thousands = STRIP_NONWORD(match.group(match.lastindex + 3) or '')
+        floating = STRIP_NONWORD(match.group(match.lastindex + 4) or '')
+        suffix = STRIP_SPACES(match.group(match.lastindex + 5) or '')
+        if prefix:
+            yield prefix
+            if prefix == u'#' and (not thousands) and (not floating):
+                yield prefix + num
+                if suffix:
+                    yield suffix
+                return
+        elif suffix and suffix[-1] == u's':
+            num_len = len(num)
+            if (not thousands) and (not floating) and ((num_len == 4 and num[-1] == u'0' and num[0] in [u'1', '2']) or (num_len == 2 and num[-1] == u'0')):
+                yield num + u's'
+                yield self.groupname_format % u'DECADE'
+                return
+        yield self.groupname_format % u'NUM'
+        yield self.groupname_format % (u'NUM_%s' % (len(num) + len(thousands)))
+        if floating:
+            yield self.groupname_format % u'FLOAT'
+            yield self.groupname_format % (u'FLOAT_%s' % len(floating))
+        if suffix:
+            yield suffix
 
     def grade_handler(self, match, *args):
         grade = match.group(match.lastindex + 1).upper()

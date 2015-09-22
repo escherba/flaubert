@@ -6,6 +6,7 @@ import abc
 import logging
 import os
 import cPickle as pickle
+from itertools import chain
 from pkg_resources import resource_filename
 from bs4 import BeautifulSoup
 from functools import partial
@@ -14,7 +15,7 @@ from nltk.stem import wordnet, PorterStemmer
 from nltk import pos_tag
 from joblib import Parallel, delayed
 from pymaptools.io import write_json_line, PathArgumentParser, GzipFileType, open_gz
-from flaubert.tokenize import RegexpFeatureTokenizer
+from flaubert.tokenize import RegexpFeatureTokenizer, DEFAULT_FEATURES
 from flaubert.urls import URLParser
 from flaubert.conf import CONFIG
 from flaubert.HTMLParser import HTMLParser, HTMLParseError
@@ -257,6 +258,7 @@ def strip_html_bs(text):
 class SimpleSentenceTokenizer(object):
 
     def __init__(self, lemmatizer=None, stemmer=None, url_parser=None,
+                 features=DEFAULT_FEATURES,
                  unicode_form='NFKC', nltk_stop_words="english",
                  sentence_tokenizer=('nltk_data', 'tokenizers/punkt/english.pickle'),
                  max_char_repeats=3, lru_cache_size=50000, translate_map_inv=None,
@@ -265,7 +267,7 @@ class SimpleSentenceTokenizer(object):
         self._unicode_normalize = partial(unicodedata.normalize, unicode_form)
         self._replace_inplace = InPlaceReplacer(replace_map).replace \
             if replace_map else lambda x: x
-        self._tokenize = RegexpFeatureTokenizer().tokenize
+        self._tokenize = RegexpFeatureTokenizer(features=features).tokenize
         self._stopwords = frozenset(stopwords.words(nltk_stop_words))
         self._url_parser = url_parser
 
@@ -453,12 +455,16 @@ def registry(key):
         return PorterStemmer()
 
 
-def tokenizer_builder():
+def tokenizer_builder(**kwargs):
+    tokenizer_config = dict(
+        chain(CONFIG['tokenizer'].items(), kwargs.items())
+    )
     return SimpleSentenceTokenizer(
         lemmatizer=registry(CONFIG['preprocess']['lemmatizer']),
         stemmer=registry(CONFIG['preprocess']['stemmer']),
         url_parser=URLParser(),
-        **CONFIG['tokenizer'])
+        **tokenizer_config
+        )
 
 
 TOKENIZER = tokenizer_builder()
