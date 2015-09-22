@@ -56,7 +56,7 @@ DEFAULT_FEATURE_MAP = [
 
     ('EMPHASIS_U', u"""(?<![$#@])\\b_+(\\p{L}+)_+\\b"""),
 
-    ('TIMEOFDAY', u"""\\b[0-2]?[0-9]:[0-6][0-9](?:\\s*[AaPp][Mm])?\\b"""),
+    ('TIMEOFDAY', u"""\\b[0-2]?[0-9](?::[0-6][0-9](?:\\s*[AaPp][Mm])?|(?:\\s*[AaPp][Mm]))\\b"""),
 
     ('DATE', u"""\\b[0-9]+\\s*\\/\\s*[0-9]+\\s*\\/\\s*[0-9]+\\b"""),
 
@@ -122,7 +122,9 @@ DEFAULT_FEATURE_MAP = [
 
     ('ELLIPSIS', u"""(?:\\.\\s*){2,}|\\u2026"""),          # ellipsis
 
-    ('XOXO', u"""\\b(?:[xX][oO])+\\b"""),
+    ('XOXO', u"""\\b[xX][oO](?:\\s*[xX][oO])*\\b"""),      # kisses / hugs
+
+    ('XX', u"""\\b[xX](?:\\s*[xX])+\\b"""),                # kisses
 
     ('PUNKT', u"""::+(?!\\/\\/)|[!?¡¿]+|[,\\.]"""),        # punctuation
 
@@ -211,10 +213,8 @@ class RegexpFeatureTokenizer(object):
             yield self.groupname_format % u'PUBLIC'
         yield self._group_name(match)
 
-    handle_xoxo = _group_tag
     handle_asciiarrow_l = _group_tag
     handle_asciiarrow_r = _group_tag
-    handle_timeofday = _group_tag
     handle_date = _group_tag
     handle_mention = _group_tag
 
@@ -323,11 +323,18 @@ class RegexpFeatureTokenizer(object):
         yield self._group_name(match)
         yield match.group()
 
+    def _clean_named_handler(self, match, *args):
+        yield self._group_name(match)
+        yield STRIP_SPACES(match.group()).upper()
+
     def handle_hashtag(self, match, *args):
         yield self._group_name(match)
         yield match.group()
         yield match.group()[1:]
 
+    handle_xx = _clean_named_handler
+    handle_xoxo = _clean_named_handler
+    handle_timeofday = _clean_named_handler
     handle_emotic_east_sad = _simple_named_handler
 
     handle_emphasis_b = _emphasis_like

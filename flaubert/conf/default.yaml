@@ -13,7 +13,7 @@ data:
         encoding: "utf-8"
 
 tokenizer:
-    features: ['CUSTOMTOKEN', 'REPLY', 'CENSORED', 'EMPHASIS_B', 'EMPHASIS_U', 'TIMEOFDAY', 'DATE', 'EMOTIC_EAST_LO', 'EMOTIC_EAST_HI', 'EMOTIC_EAST_SAD', 'EMOTIC_WEST_L', 'EMOTIC_WEST_R', 'EMOTIC_WEST_L_HAPPY', 'EMOTIC_WEST_CHEER', 'EMOTIC_WEST_L_MISC', 'EMOTIC_WEST_R_MISC', 'EMOTIC_RUSS_HAPPY', 'EMOTIC_RUSS_SAD', 'EMOTIC_HEART', 'CONTRACTION', 'MPAARATING', 'GRADE_POST', 'GRADE_PRE', 'THREED', 'NUMBER', 'HASHTAG', 'MENTION', 'ASCIIARROW_R', 'ASCIIARROW_L', 'MNDASH', 'ABBREV1', 'ABBREV2', 'ABBREV3', 'ELLIPSIS', 'XOXO', 'PUNKT', 'ANYWORD']
+    features: ['CUSTOMTOKEN', 'REPLY', 'CENSORED', 'EMPHASIS_B', 'EMPHASIS_U', 'TIMEOFDAY', 'DATE', 'EMOTIC_EAST_LO', 'EMOTIC_EAST_HI', 'EMOTIC_EAST_SAD', 'EMOTIC_WEST_L', 'EMOTIC_WEST_R', 'EMOTIC_WEST_L_HAPPY', 'EMOTIC_WEST_CHEER', 'EMOTIC_WEST_L_MISC', 'EMOTIC_WEST_R_MISC', 'EMOTIC_RUSS_HAPPY', 'EMOTIC_RUSS_SAD', 'EMOTIC_HEART', 'CONTRACTION', 'MPAARATING', 'GRADE_POST', 'GRADE_PRE', 'THREED', 'NUMBER', 'HASHTAG', 'MENTION', 'ASCIIARROW_R', 'ASCIIARROW_L', 'MNDASH', 'ABBREV1', 'ABBREV2', 'ABBREV3', 'ELLIPSIS', 'XOXO', 'XX', 'PUNKT', 'ANYWORD']
     unicode_form: "NFKC"
     nltk_stop_words: "english"
     #sentence_tokenizer: ['nltk_data', 'tokenizers/punkt/english.pickle']
@@ -55,7 +55,7 @@ preprocess:
 pretrain:
     split_by_sentence: false
     doc2vec_labels: ['sentence']   # allowed labels: ['sentence', 'document']
-    algorithm: "word2vec"    # either word2vec or glove
+    algorithm: "glove"    # either word2vec or glove
     embedding: "word2vec"    # for word2vec algo, either word2vec or doc2vec
 
 train:

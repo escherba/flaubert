@@ -13,7 +13,7 @@ FEATURES = [
     'EMOTIC_WEST_R_MISC', 'EMOTIC_RUSS_HAPPY', 'EMOTIC_RUSS_SAD', 'EMOTIC_HEART',
     'CONTRACTION', 'MPAARATING', 'GRADE_POST', 'GRADE_PRE', 'THREED', 'NUMBER',
     'HASHTAG', 'MENTION', 'ASCIIARROW_R', 'ASCIIARROW_L', 'MNDASH', 'ABBREV1',
-    'ABBREV2', 'ABBREV3', 'ELLIPSIS', 'XOXO', 'PUNKT', 'ANYWORD']
+    'ABBREV2', 'ABBREV3', 'ELLIPSIS', 'XOXO', 'XX', 'PUNKT', 'ANYWORD']
 
 
 class TestTwitterTokens(unittest.TestCase, SetComparisonMixin):
@@ -218,3 +218,14 @@ class TestTwitterTokens(unittest.TestCase, SetComparisonMixin):
         text = u"@artmeanslove I &lt;3 that book"
         tokens = self.tokenize(text)
         self.assertSetContainsSubset([u'<3', u'<EMOTIC_HEART_HAPPY>'], tokens)
+
+    def test_kisses(self):
+        text = u"ohh lovely  x hehe x count naked people hehe that's " \
+            u"what you always tell me to do hehe x x x night night xxxxx"
+        token_counts = Counter(self.tokenize(text))
+        self.assertEqual(2, token_counts[u'<XX>'])
+
+    def test_kisses_hugs(self):
+        text = u"all right, xo xo vou mimi now xoxo"
+        token_counts = Counter(self.tokenize(text))
+        self.assertEqual(2, token_counts[u'<XOXO>'])
