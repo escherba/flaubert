@@ -2,20 +2,31 @@ import unittest
 from tests import count_prefix
 from functools import partial
 from collections import Counter
-from flaubert.preprocess import TOKENIZER
+from flaubert.preprocess import tokenizer_builder
 from flaubert.tokenize import RegexpFeatureTokenizer
 from pymaptools.utils import SetComparisonMixin
 
+FEATURES = [
+    'CUSTOMTOKEN', 'CENSORED', 'EMPHASIS_B', 'EMPHASIS_U', 'TIMEOFDAY',
+    'DATE', 'EMOTIC_EAST_LO', 'EMOTIC_EAST_HI', 'EMOTIC_EAST_SAD', 'EMOTIC_WEST_L',
+    'EMOTIC_WEST_R', 'EMOTIC_WEST_L_HAPPY', 'EMOTIC_WEST_CHEER', 'EMOTIC_WEST_L_MISC',
+    'EMOTIC_WEST_R_MISC', 'EMOTIC_RUSS_HAPPY', 'EMOTIC_RUSS_SAD', 'EMOTIC_HEART',
+    'CONTRACTION', 'STARRATING', 'STARRATING_FULL', 'STARRATING_X', 'MPAARATING',
+    'GRADE_POST', 'GRADE_PRE', 'THREED', 'DECADE',
+    'ASCIIARROW_R', 'ASCIIARROW_L', 'MNDASH', 'ABBREV1', 'ABBREV2', 'ABBREV3',
+    'ELLIPSIS', 'XOXO', 'PUNKT', 'ANYWORD']
 
-class TestFeatureTokens(unittest.TestCase, SetComparisonMixin):
+
+class TestImdbTokens(unittest.TestCase, SetComparisonMixin):
 
     maxDiff = 2000
 
     def setUp(self):
+        TOKENIZER = tokenizer_builder(features=FEATURES)
         self.tokenizer = TOKENIZER
         self.tokenize = partial(TOKENIZER.tokenize, remove_stopwords=False)
         self.sentence_tokenize = TOKENIZER.sentence_tokenize
-        self.base_tokenizer = RegexpFeatureTokenizer(debug=True)
+        self.base_tokenizer = RegexpFeatureTokenizer(features=FEATURES, debug=True)
 
     def test_preprocess(self):
         text = u"wow \u2014 such \u2013 doge"
@@ -63,26 +74,25 @@ class TestFeatureTokens(unittest.TestCase, SetComparisonMixin):
         reconstructed = u' '.join(token for token in tokens if not token.startswith(u"<EMOTIC"))
         self.assertEqual(text.lower(), reconstructed)
         group_names = [m.lastgroup for m in zip(*self.base_tokenizer.tokenize(text))[1]]
-        self.assertEqual(34, count_prefix(u"EMOTIC", group_names))
+        self.assertEqual(len(tokens), count_prefix(u"EMOTIC", group_names))
 
     def test_western_emoticons_sad(self):
         """With custom features removed, this text should be idempotent on tokenization
         """
-        text = u":-( :( =( =(( :=( >:( :[ :'( :^( ): ]: ))= )= )=: :-c :C :O :@"
+        text = u":-( :( =( =(( :=( >:( :[ :'( :^( ): ]: ))= )= )=: :-c :C :O :@ D:"
         tokens = self.tokenize(text)
         reconstructed = u' '.join(token for token in tokens if not token.startswith(u"<EMOTIC"))
         self.assertEqual(text.lower(), reconstructed)
 
         group_names = [m.lastgroup for m in zip(*self.base_tokenizer.tokenize(text))[1]]
-        self.assertEqual(35, count_prefix(u"EMOTIC", group_names))
+        self.assertEqual(len(tokens), count_prefix(u"EMOTIC", group_names))
 
     def test_western_emoticons_misc(self):
         """With custom features removed, this text should be idempotent on tokenization
         """
-        text = u":0 :l :s"
+        text = u":0 :l :s :x \o/ \m/"
         tokens = self.tokenize(text)
-        reconstructed = u' '.join(token for token in tokens if not token.startswith(u"<EMOTIC"))
-        self.assertEqual(text.lower(), reconstructed)
+        self.assertSetContainsSubset([u':0', u':l', u':s', u':x', u'\o/', u'\m/'], tokens)
 
     def test_hearts(self):
         """With custom features removed, this text should be idempotent on tokenization
@@ -95,7 +105,7 @@ class TestFeatureTokens(unittest.TestCase, SetComparisonMixin):
         group_names = [m.lastgroup for m in zip(*self.base_tokenizer.tokenize(text))[1]]
         self.assertSetContainsSubset([u'<3', u'<EMOTIC_HEART_HAPPY>', u'</3', u'<EMOTIC_HEART_SAD>'],
                                      tokens)
-        self.assertEqual(4, count_prefix(u"EMOTIC", group_names))
+        self.assertEqual(len(tokens) - 3, count_prefix(u"EMOTIC", group_names))
 
     def test_no_emoticon(self):
         """No emoticon should be detected in this text
@@ -106,12 +116,12 @@ class TestFeatureTokens(unittest.TestCase, SetComparisonMixin):
         self.assertEqual(0, count_prefix(u"EMOTIC", group_names))
 
     def test_eastern_emoticons(self):
-        text = u"*.* (^_^) *_* *-* +_+ ~_~ -.- -__- -___- t_t q_q"
+        text = u"*.* (^_^) *_* *-* +_+ ~_~ -.- -__- -___- t_t q_q ;_; t.t q.q ;.;"
         tokens = self.tokenize(text)
         reconstructed = u' '.join(token for token in tokens if not (token.startswith(u"<") and token.endswith(u">")))
         self.assertEqual(text, reconstructed)
         group_names = [m.lastgroup for m in zip(*self.base_tokenizer.tokenize(text))[1]]
-        self.assertEqual(9, count_prefix(u"EMOTIC", group_names))
+        self.assertEqual(len(tokens), count_prefix(u"EMOTIC", group_names))
 
     def test_russian_emoticons(self):
         text = u"haha! ))))) )) how sad (("
@@ -119,13 +129,13 @@ class TestFeatureTokens(unittest.TestCase, SetComparisonMixin):
         reconstructed = u' '.join(tokens)
         self.assertEqual(u'haha ! ))) )) how sad ((', reconstructed)
         group_names = [m.lastgroup for m in zip(*self.base_tokenizer.tokenize(text))[1]]
-        self.assertEqual(3, count_prefix(u"EMOTIC", group_names))
+        self.assertEqual(len(tokens) - 4, count_prefix(u"EMOTIC", group_names))
 
     def test_ascii_arrow(self):
         text = u"Look here -->> such doge <<<"
         tokens = self.tokenize(text)
         self.assertSetContainsSubset(
-            {'<ASCIIARROW_RIGHT>', '<ASCIIARROW_LEFT>'}, tokens)
+            {'<ASCIIARROW_R>', '<ASCIIARROW_L>'}, tokens)
 
     def test_abbrev(self):
         text = u"S&P index of X-men in the U.S."
@@ -292,13 +302,6 @@ class TestFeatureTokens(unittest.TestCase, SetComparisonMixin):
         tokens = self.tokenize(text)
         self.assertSetContainsSubset(
             [u'nice', u'1950s', u'60s', u'americana'], tokens)
-
-    def test_mention(self):
-        text = u"@RayFranco is answering to @AnPel, this is a real '@username83' " \
-               u"but this is an@email.com, and this is a @probablyfaketwitterusername"
-        token_counts = Counter(self.tokenize(text))
-        self.assertEqual(4, token_counts['<MENTION>'])
-        self.assertEqual(1, token_counts['<EMAIL>'])
 
     def test_emphasis_star(self):
         text = u"@hypnotic I know  *cries*"

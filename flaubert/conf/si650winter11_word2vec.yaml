@@ -1,20 +1,25 @@
 data:
-    directory: 'data/aclImdb'
-    labeled_fields: {'Y': 'sentiment', 'X': 'review'}
-    unlabeled_fields: {'X': 'review'}
-    train_labeled: 'labeledTrainData-*'
-    train_unlabeled: 'unlabeledTrainData-*'
-    test_final: 'testData'
-    extension: tsv.gz
+    directory: 'data/si650winter11'
+    labeled_fields: {'Y': 0, 'X': 1}
+    unlabeled_fields: {'X': 0}
+    train_labeled: 'training'
+    train_unlabeled: ''
+    test_final: 'testdata'
+    extension: txt.gz
     read_csv_kwargs:
-        header: 0
-        quoting: 2
+        header: null
         delimiter: "\t"
-        escapechar: "\\"
-        quotechar: '"'
         encoding: "utf-8"
 
 tokenizer:
+    features: ['CUSTOMTOKEN', 'CENSORED', 'EMPHASIS_B', 'EMPHASIS_U', 'TIMEOFDAY',
+    'DATE', 'EMOTIC_EAST_LO', 'EMOTIC_EAST_HI', 'EMOTIC_EAST_SAD', 'EMOTIC_WEST_L',
+    'EMOTIC_WEST_R', 'EMOTIC_WEST_L_HAPPY', 'EMOTIC_WEST_CHEER', 'EMOTIC_WEST_L_MISC',
+    'EMOTIC_WEST_R_MISC', 'EMOTIC_RUSS_HAPPY', 'EMOTIC_RUSS_SAD', 'EMOTIC_HEART',
+    'CONTRACTION', 'STARRATING', 'STARRATING_FULL', 'STARRATING_X', 'MPAARATING',
+    'GRADE_POST', 'GRADE_PRE', 'THREED', 'DECADE',
+    'ASCIIARROW_R', 'ASCIIARROW_L', 'MNDASH', 'ABBREV1', 'ABBREV2', 'ABBREV3',
+    'ELLIPSIS', 'XOXO', 'PUNKT', 'ANYWORD']
     unicode_form: "NFKC"
     nltk_stop_words: "english"
     #sentence_tokenizer: ['nltk_data', 'tokenizers/punkt/english.pickle']
@@ -51,9 +56,9 @@ preprocess:
 
 pretrain:
     split_by_sentence: false
-    doc2vec_labels: ['document']   # [] or ['document'] or ['sentence', 'document']
+    doc2vec_labels: ['sentence']   # allowed labels: ['sentence', 'document']
     algorithm: "word2vec"    # either word2vec or glove
-    embedding: "doc2vec"    # for word2vec algo, either word2vec or doc2vec
+    embedding: "word2vec"    # for word2vec algo, either word2vec or doc2vec
 
 train:
     test_size: 0.2
@@ -62,7 +67,7 @@ train:
     doc2vec_labels: []   # [] or ['document'] or ['sentence', 'document']
     classifier: 'svm'
     scoring: 'accuracy'
-    features: ["embedding"]  # "bow" and/or "embedding"
+    features: ["embedding"]   # either "bow" or "embedding" or both
     nltk_stop_words: null    # either null or "english" or others...
 
 glove:

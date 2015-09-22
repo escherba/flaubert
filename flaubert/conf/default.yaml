@@ -13,6 +13,7 @@ data:
         encoding: "utf-8"
 
 tokenizer:
+    features: ['CUSTOMTOKEN', 'REPLY', 'CENSORED', 'EMPHASIS_B', 'EMPHASIS_U', 'TIMEOFDAY', 'DATE', 'EMOTIC_EAST_LO', 'EMOTIC_EAST_HI', 'EMOTIC_EAST_SAD', 'EMOTIC_WEST_L', 'EMOTIC_WEST_R', 'EMOTIC_WEST_L_HAPPY', 'EMOTIC_WEST_CHEER', 'EMOTIC_WEST_L_MISC', 'EMOTIC_WEST_R_MISC', 'EMOTIC_RUSS_HAPPY', 'EMOTIC_RUSS_SAD', 'EMOTIC_HEART', 'CONTRACTION', 'MPAARATING', 'GRADE_POST', 'GRADE_PRE', 'THREED', 'NUMBER', 'HASHTAG', 'MENTION', 'ASCIIARROW_R', 'ASCIIARROW_L', 'MNDASH', 'ABBREV1', 'ABBREV2', 'ABBREV3', 'ELLIPSIS', 'XOXO', 'PUNKT', 'ANYWORD']
     unicode_form: "NFKC"
     nltk_stop_words: "english"
     #sentence_tokenizer: ['nltk_data', 'tokenizers/punkt/english.pickle']
@@ -65,7 +66,7 @@ train:
     doc2vec_labels: []   # [] or ['document'] or ['sentence', 'document']
     classifier: 'svm'
     scoring: 'accuracy'
-    features: ["embedding"]   # either "bow" or "embedding" or both
+    features: ["bow", "embedding"]   # either "bow" or "embedding" or both
     nltk_stop_words: null    # either null or "english" or others...
 
 glove:
