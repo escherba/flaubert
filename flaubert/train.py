@@ -96,9 +96,8 @@ def get_word2vec_features(document_iter, model):
 
 
 def get_bow_features(documents):
-    # TODO: replace this with a Pipeline
-    data = [Counter(w for w in chain(*doc) if w not in STOP_WORDS) for doc in documents]
-    vectorizer = DictVectorizer()
+    data = [list(chain(*doc)) for doc in documents]
+    vectorizer = BagVectorizer(onehot=False, stop_words=STOP_WORDS)
     train_data_features = vectorizer.fit_transform(data)
     return train_data_features
 
@@ -367,11 +366,11 @@ def get_data(args):
         raise RuntimeError("--embedding argument must be supplied")
 
     # get input data
-    sentences, y_labels = sample_by_y(args)
+    documents, y_labels = sample_by_y(args)
 
     if not args.embedding or feature_set_names == ['bow']:
         # don't drop NaNs -- have a sparse matrix here
-        X = get_bow_features(sentences)
+        X = get_bow_features(documents)
         return False, (X, y_labels)
 
     # load embedding
@@ -386,12 +385,12 @@ def get_data(args):
 
     # get feature vectors
     if 'embedding' in CONFIG['train']['features']:
-        embedding_vectors = get_word2vec_features(sentences, embedding)
+        embedding_vectors = get_word2vec_features(documents, embedding)
     else:
         raise RuntimeError("Invalid config setting train:features=%s" % CONFIG['train']['features'])
 
     if 'bow' in feature_set_names:
-        X, y_labels = get_mixed_features(sentences, embedding_vectors, y_labels)
+        X, y_labels = get_mixed_features(documents, embedding_vectors, y_labels)
         return True, (X, y_labels)
     else:
         # matrix is dense -- drop NaNs

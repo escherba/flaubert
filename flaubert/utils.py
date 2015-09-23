@@ -1,10 +1,11 @@
 import pandas
 import random
 import numpy as np
+import regex as re
 from itertools import chain
 from collections import defaultdict, Counter
 from nltk.stem import wordnet
-from scipy.sparse import dok_matrix
+from scipy.sparse import dok_matrix as sparse_matrix_type
 from fastcache import clru_cache
 from sklearn.base import BaseEstimator, TransformerMixin
 from pymaptools.vectorize import enumerator
@@ -164,6 +165,8 @@ class ItemSelector(BaseEstimator, TransformerMixin):
         return data_dict[self.key]
 
 
+# TODO: make BagVectorizer support scikit-learn pipelines
+
 class BagVectorizer(BaseEstimator, TransformerMixin):
 
     """Transform an array of word bags into a sparse matrix
@@ -171,8 +174,17 @@ class BagVectorizer(BaseEstimator, TransformerMixin):
     Similar to DictVectorizer except taks list of lists instead
     of list of dicts and can be pre-initialized with a vocabulary
     """
-    def __init__(self, vocabulary=None):
+    def __init__(self, vocabulary=None, sparse=True, onehot=True,
+                 stop_words=None, dtype=np.int64):
         self.vocabulary_ = vocabulary
+        self.sparse_ = sparse
+        self.dtype_ = dtype
+        self.onehot_ = onehot
+        if isinstance(stop_words, basestring):
+            stop_words = re.findall(u'\\w+', stop_words)
+        elif stop_words is None:
+            stop_words = []
+        self.stop_words_ = frozenset(stop_words)
 
     def fit(self, X, y=None):
         enum = self.vocabulary_ or enumerator()
@@ -187,12 +199,20 @@ class BagVectorizer(BaseEstimator, TransformerMixin):
 
         enum = self.vocabulary_
         shape = (len(X), len(self.vocabulary_))
-        mat = dok_matrix(shape, dtype=np.int32)
-        for idx, row in enumerate(X):
-            for word in row:
-                mat[idx, enum[word]] = 1
+        mat = sparse_matrix_type(shape, dtype=self.dtype_)
+        stop_words = self.stop_words_
+        if self.onehot_:
+            for idx, row in enumerate(X):
+                for word in row:
+                    if word not in stop_words:
+                        mat[idx, enum[word]] = 1
+        else:
+            for idx, row in enumerate(X):
+                for word, count in Counter(row).iteritems():
+                    if word not in stop_words:
+                        mat[idx, enum[word]] = count
         self.feature_names_ = enum.keys()
-        return mat.tocsr()
+        return mat.tocsr() if self.sparse_ else mat.todense()
 
     def get_feature_names(self):
         return self.feature_names_
