@@ -3,6 +3,7 @@ from __future__ import print_function
 import numpy as np
 import logging
 import cPickle as pickle
+from copy import deepcopy
 from itertools import chain, izip
 from collections import Counter
 from sklearn.cross_validation import train_test_split
@@ -12,6 +13,7 @@ from sklearn.svm import LinearSVC
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier, \
     ExtraTreesClassifier
+from sklearn.naive_bayes import MultinomialNB
 from sklearn.feature_extraction import DictVectorizer
 from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.pipeline import FeatureUnion, Pipeline
@@ -98,8 +100,6 @@ def get_bow_features(documents):
     data = [Counter(w for w in chain(*doc) if w not in STOP_WORDS) for doc in documents]
     vectorizer = DictVectorizer()
     train_data_features = vectorizer.fit_transform(data)
-    transformer = TfidfTransformer()
-    train_data_features = transformer.fit_transform(train_data_features)
     return train_data_features
 
 
@@ -125,22 +125,41 @@ def get_mixed_features(sentences, embedding_vectors, y_labels):
     return X, np.asarray(y)
 
 
-PARAM_GRIDS = {
-    'lr': [
+TRANSFORMER_PARAMS = {
+    None: [None, {}],
+    'TfidfTransformer': [
+        TfidfTransformer,
+        {
+            # 'tfidf__smooth_idf': [True, False],   # causes error in some cases
+            'trans__norm': ['l1', 'l2', None],
+            'trans__use_idf': [True, False],
+            'trans__sublinear_tf': [True, False],
+        }
+    ]
+}
+
+CLF_PARAMS = {
+    'MultinomialNB': [
+        MultinomialNB,
+        {
+            'clf__alpha': [0.464, 1.0, 2.15, 4.64, 10.0, 21.5, 46.4]
+        },
+    ],
+    'LogisticRegression': [
         LogisticRegression,
         [
-            {'clf__dual': [False], 'clf__penalty':['l1', 'l2'], 'clf__C': [0.01, 0.033, 0.1, 0.33, 1.0]},
-            {'clf__dual': [True],  'clf__penalty':['l2'],       'clf__C': [0.01, 0.033, 0.1, 0.33, 1.0]}
+            {'clf__dual': [False], 'clf__penalty':['l1', 'l2'], 'clf__C': [0.01, 0.1, 1, 10]},
+            {'clf__dual': [True],  'clf__penalty':['l2'],       'clf__C': [0.01, 0.1, 1, 10]}
         ]
     ],
-    'svm': [
+    'LinearSVC': [
         LinearSVC,
         [
-            {'clf__dual': [False], 'clf__penalty':['l1', 'l2'], 'clf__C': [1, 3.33, 10, 33, 100, 333]},
-            {'clf__dual': [True],  'clf__penalty':['l2'],       'clf__C': [0.1, 1, 10, 100]}
+            {'clf__dual': [False], 'clf__penalty':['l1', 'l2'], 'clf__C': [0.1, 1, 10, 100, 1000]},
+            {'clf__dual': [True],  'clf__penalty':['l2'],       'clf__C': [0.1, 1, 10, 100, 1000]}
         ]
     ],
-    'random_forest': [
+    'RandomForest': [
         RandomForestClassifier,
         {
             "clf__n_estimators": [90],
@@ -152,7 +171,7 @@ PARAM_GRIDS = {
             "clf__criterion": ["gini"]
         }
     ],
-    'adaboost': [
+    'AdaBoost': [
         (
             lambda: AdaBoostClassifier(DecisionTreeClassifier(
                 criterion="gini", max_depth=2, min_samples_split=2, min_samples_leaf=2))
@@ -166,8 +185,24 @@ PARAM_GRIDS = {
 }
 
 
+def update_params(orig, copied):
+    if isinstance(orig, list):
+        new_params = []
+        for orig_elem in orig:
+            param_dict = deepcopy(orig_elem)
+            param_dict.update(copied)
+            new_params.append(param_dict)
+        return new_params
+    elif isinstance(orig, dict):
+        new_params = deepcopy(orig)
+        new_params.update(copied)
+        return new_params
+    else:
+        raise TypeError("first parameter must be either list or dict")
+
+
 def build_grid(args, is_mixed):
-    clf, clf_params = PARAM_GRIDS[CONFIG['train']['classifier']]
+    clf, pipeline_params = CLF_PARAMS[CONFIG['train']['classifier']]
     feature_set_names = CONFIG['train']['features']
     if is_mixed:
         transformer_list = []
@@ -196,11 +231,20 @@ def build_grid(args, is_mixed):
             )),
             ('clf', clf()),
         ])
-    else:
+    elif set(feature_set_names).intersection(['embedding']):
         pipeline = Pipeline([
             ('clf', clf()),
         ])
-    grid_args = [pipeline, clf_params]
+    elif set(feature_set_names).intersection(['bow']):
+        steps = []
+        trans, trans_params = TRANSFORMER_PARAMS[CONFIG['train']['transformer']]
+        if trans:
+            steps.append(('trans', trans()))
+            pipeline_params = update_params(pipeline_params, trans_params)
+        steps.append(('clf', clf()))
+        pipeline = Pipeline(steps)
+
+    grid_args = [pipeline, pipeline_params]
     grid_kwargs = dict(cv=5, scoring=CONFIG['train']['scoring'], n_jobs=-1, verbose=10)
     result = GridSearchCV(*grid_args, **grid_kwargs)
     return result
@@ -239,7 +283,11 @@ def train_model(args, X_train, X_test, y_train, y_test, is_mixed=False):
     y_true, y_pred = y_test, clf.predict(X_test)
     print(classification_report(y_true, y_pred))
 
-    pred_probas = clf.decision_function(X_test)
+    try:
+        pred_probas = clf.predict_log_proba(X_test)
+        pred_probas = pred_probas[:, 1]
+    except AttributeError:
+        pred_probas = clf.decision_function(X_test)
     fpr, tpr, _ = roc_curve(y_test, pred_probas)
     roc_auc = auc(fpr, tpr)
     print("ROC AUC = %.3f" % roc_auc)

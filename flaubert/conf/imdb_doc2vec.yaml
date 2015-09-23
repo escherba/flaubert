@@ -68,7 +68,8 @@ train:
     random_state: 0
     split_by_sentence: false
     doc2vec_labels: []   # [] or ['document'] or ['sentence', 'document']
-    classifier: 'svm'
+    transformer: 'TfidfTransformer'
+    classifier: 'LinearSVC'
     scoring: 'accuracy'
     features: ["embedding"]  # "bow" and/or "embedding"
     nltk_stop_words: null    # either null or "english" or others...
